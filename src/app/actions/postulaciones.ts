@@ -51,6 +51,9 @@ export type IntegranteInput = {
   calidad: Calidad;
   carrera: string;
   sede: string;
+  /** Declaradas por el postulante; no se verifican contra registros internos. */
+  declaraMayorDeEdad: boolean;
+  declaraMatriculaVigente: boolean;
   esRepresentante: boolean;
 };
 
@@ -127,13 +130,11 @@ export async function guardarPostulacion(input: PostulacionInput): Promise<Actio
         carrera: i.carrera,
         sede: i.sede,
         esRepresentante: i.esRepresentante,
-        // La fecha de nacimiento y la matrícula las acredita el Comité Técnico
-        // contra los registros de Iplacex, no el propio postulante.
-        fechaNacimiento: null,
-        matriculaVigente: i.calidad === "estudiante" ? true : null,
+        declaraMayorDeEdad: i.declaraMayorDeEdad,
+        declaraMatriculaVigente: i.declaraMatriculaVigente,
       })),
       { proyectoId: input.proyectoId },
-    ).filter((p) => p.codigo !== "fecha_nacimiento_faltante");
+    );
     if (problemas.length > 0) return { ok: false, error: problemas[0].mensaje };
   }
 
@@ -208,6 +209,8 @@ async function guardarIntegrantes(
       carrera: i.carrera?.trim() || null,
       sede: i.sede?.trim() || null,
       es_representante: i.esRepresentante,
+      declara_mayor_edad: i.declaraMayorDeEdad,
+      declara_matricula_vigente: i.calidad === "estudiante" ? i.declaraMatriculaVigente : null,
       // convocatoria_id lo rellena el trigger set_integrante_convocatoria.
       convocatoria_id: 0,
     }));

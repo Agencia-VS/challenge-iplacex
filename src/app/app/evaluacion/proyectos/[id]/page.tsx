@@ -66,12 +66,14 @@ export default async function EvaluarProyectoPage({ params }: PageProps) {
     ((proyecto.categorias as unknown as { slug: string } | null)?.slug as CategoriaSlug) ??
     "idea-temprana";
 
-  // La primera evaluación es la preselección: todavía no hay presentación oral,
-  // así que el pitch no se califica y el puntaje se normaliza.
-  // TODO(bases): confirmar el mapeo cuando el cronograma definitivo esté fijado.
+  // La preselección no tiene presentación oral: el pitch no se califica y el
+  // puntaje se normaliza. La semifinal y el Demo Day sí lo evalúan, con la
+  // misma fórmula pero distinto efecto (ver EtapaEvaluacion en rubrica.ts).
   const tipoEtapa = (asignacion.etapas as unknown as { tipo: string } | null)?.tipo;
   const etapaEvaluacion: EtapaEvaluacion =
-    tipoEtapa === "preseleccion" ? "preseleccion" : "final";
+    tipoEtapa === "preseleccion" ? "preseleccion"
+    : tipoEtapa === "semifinal" ? "semifinal"
+    : "final";
 
   const { data: prevEval } = await supabase
     .from("evaluaciones")

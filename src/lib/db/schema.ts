@@ -10,7 +10,7 @@ import {
   jsonb,
   uuid,
   real,
-  date,
+
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -56,6 +56,7 @@ export const tipoEtapaEnum = pgEnum("tipo_etapa", [
   "postulacion",
   "preseleccion",
   "bootcamp",
+  "semifinal",
   "seleccion_finalistas",
   "demo_day",
 ]);
@@ -256,9 +257,11 @@ export const integrantes = pgTable("integrantes", {
   calidad: calidadIntegranteEnum("calidad").notNull(),
   carrera: varchar("carrera", { length: 200 }),
   sede: varchar("sede", { length: 200 }),
-  fechaNacimiento: date("fecha_nacimiento"),
+  // Declaradas por el postulante al enviar. No hay verificación contra los
+  // registros de Iplacex; se guardan para dejar constancia de qué afirmó.
+  declaraMayorEdad: boolean("declara_mayor_edad").notNull().default(false),
   /** Solo se exige a estudiantes. */
-  matriculaVigente: boolean("matricula_vigente"),
+  declaraMatriculaVigente: boolean("declara_matricula_vigente"),
   esRepresentante: boolean("es_representante").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });

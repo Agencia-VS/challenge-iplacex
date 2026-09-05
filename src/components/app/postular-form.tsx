@@ -9,7 +9,7 @@ import { cn } from "@/lib/cn";
 import { guardarPostulacion } from "@/app/actions/postulaciones";
 import { CATEGORIAS, type Categoria } from "@/lib/rubrica";
 import { ODS } from "@/lib/ods";
-import { MAX_INTEGRANTES, MAX_EXTERNOS, type Calidad } from "@/lib/admisibilidad";
+import { MAX_INTEGRANTES, MAX_EXTERNOS, EDAD_MINIMA, type Calidad } from "@/lib/admisibilidad";
 import { esRutValido, formatearRut } from "@/lib/rut";
 
 /** Máximo del resumen ejecutivo, en palabras. Lo fijan las Bases. */
@@ -29,6 +29,9 @@ export type IntegranteForm = {
   calidad: Calidad;
   carrera: string;
   sede: string;
+  /** Declaradas por el propio postulante; no se verifican internamente. */
+  declaraMayorDeEdad: boolean;
+  declaraMatriculaVigente: boolean;
   esRepresentante: boolean;
 };
 
@@ -60,6 +63,8 @@ const INTEGRANTE_VACIO: IntegranteForm = {
   calidad: "estudiante",
   carrera: "",
   sede: "",
+  declaraMayorDeEdad: false,
+  declaraMatriculaVigente: false,
   esRepresentante: false,
 };
 
@@ -464,18 +469,42 @@ function IntegranteFila({
         )}
       </div>
 
-      <label className="mt-3 flex cursor-pointer items-center gap-2 text-[12px] text-brand-ink-soft">
-        <input
-          type="radio"
-          name="representante"
-          checked={integrante.esRepresentante}
-          onChange={() => onChange({ esRepresentante: true })}
-          disabled={esExterno}
-          className="h-3.5 w-3.5 accent-brand-accent"
-        />
-        Designar como representante
-        {esExterno && <span className="text-brand-ink-muted">(no puede ser externo)</span>}
-      </label>
+      <div className="mt-3 flex flex-col gap-2 border-t border-brand-line pt-3">
+        <label className="flex cursor-pointer items-start gap-2 text-[12px] text-brand-ink-soft">
+          <input
+            type="checkbox"
+            checked={integrante.declaraMayorDeEdad}
+            onChange={(e) => onChange({ declaraMayorDeEdad: e.target.checked })}
+            className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-brand-accent"
+          />
+          Declara ser mayor de {EDAD_MINIMA} años
+        </label>
+
+        {integrante.calidad === "estudiante" && (
+          <label className="flex cursor-pointer items-start gap-2 text-[12px] text-brand-ink-soft">
+            <input
+              type="checkbox"
+              checked={integrante.declaraMatriculaVigente}
+              onChange={(e) => onChange({ declaraMatriculaVigente: e.target.checked })}
+              className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-brand-accent"
+            />
+            Declara matrícula vigente en Iplacex
+          </label>
+        )}
+
+        <label className="flex cursor-pointer items-center gap-2 text-[12px] text-brand-ink-soft">
+          <input
+            type="radio"
+            name="representante"
+            checked={integrante.esRepresentante}
+            onChange={() => onChange({ esRepresentante: true })}
+            disabled={esExterno}
+            className="h-3.5 w-3.5 accent-brand-accent"
+          />
+          Designar como representante
+          {esExterno && <span className="text-brand-ink-muted">(no puede ser externo)</span>}
+        </label>
+      </div>
     </div>
   );
 }

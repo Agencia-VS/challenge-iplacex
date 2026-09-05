@@ -1,6 +1,11 @@
 /**
  * Selección de finalistas para el Demo Day — Challenge IPLACEX 2026.
  *
+ * Consume los puntajes de la SEMIFINAL, no los de la preselección: es ahí donde
+ * el pitch pondera, y de esa instancia salen los diez que llegan al Demo Day.
+ * El puntaje del Demo Day es otra cosa —el resultado final del concurso— y no
+ * vuelve a entrar en esta selección.
+ *
  * El ranking es único: no hay premios por categoría. Pero para garantizar que
  * las tres categorías lleguen representadas, seis de los diez cupos se asignan
  * a los dos mejores de cada categoría y los cuatro restantes salen del ranking

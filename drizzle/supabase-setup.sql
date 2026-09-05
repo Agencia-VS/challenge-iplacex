@@ -32,7 +32,7 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
   CREATE TYPE public.tipo_etapa AS ENUM (
-    'postulacion', 'preseleccion', 'bootcamp',
+    'postulacion', 'preseleccion', 'bootcamp', 'semifinal',
     'seleccion_finalistas', 'demo_day'
   );
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
@@ -218,8 +218,9 @@ CREATE TABLE IF NOT EXISTS public.integrantes (
   calidad        public.calidad_integrante NOT NULL,
   carrera        VARCHAR(200),
   sede           VARCHAR(200),
-  fecha_nacimiento DATE,
-  matricula_vigente BOOLEAN,
+  -- Declaradas por el postulante; sin verificacion contra registros internos.
+  declara_mayor_edad        BOOLEAN NOT NULL DEFAULT false,
+  declara_matricula_vigente BOOLEAN,
   es_representante BOOLEAN NOT NULL DEFAULT false,
   created_at     TIMESTAMPTZ DEFAULT now(),
 

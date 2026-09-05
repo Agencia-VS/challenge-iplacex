@@ -12,8 +12,16 @@
 export type NivelDesempeno = 1 | 2 | 3 | 4;
 export type CriterioSlug = "problema" | "propuesta-valor" | "viabilidad" | "impacto" | "comunicacion";
 export type CategoriaSlug = "idea-temprana" | "implementacion" | "intraemprendimiento";
-/** La preselección no tiene presentación oral, así que excluye el pitch. */
-export type EtapaEvaluacion = "preseleccion" | "final";
+/**
+ * Instancias de evaluación del concurso.
+ *
+ * La preselección no tiene presentación oral, así que excluye el pitch y
+ * normaliza el puntaje. La semifinal y el Demo Day sí lo evalúan, con los cinco
+ * criterios y la misma fórmula; lo que cambia entre ellas es el efecto: el
+ * pitch de la semifinal pondera en la selección de los diez finalistas, y el
+ * del Demo Day entrega el 15% del puntaje final. No se promedian entre sí.
+ */
+export type EtapaEvaluacion = "preseleccion" | "semifinal" | "final";
 
 // ─── ESCALA ──────────────────────────────────────────────────────────────────
 
@@ -123,9 +131,9 @@ export const DESCRIPTORES: Record<
 
 const FACTOR: Record<NivelDesempeno, number> = { 4: 1, 3: 0.75, 2: 0.5, 1: 0.25 };
 
-/** Criterios que corren en una etapa dada. */
+/** Criterios que corren en una etapa dada. Solo la preselección excluye el pitch. */
 export function criteriosDe(etapa: EtapaEvaluacion): Criterio[] {
-  return etapa === "final" ? CRITERIOS : CRITERIOS.filter((c) => c.enPreseleccion);
+  return etapa === "preseleccion" ? CRITERIOS.filter((c) => c.enPreseleccion) : CRITERIOS;
 }
 
 /**

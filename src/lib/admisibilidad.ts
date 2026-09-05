@@ -12,6 +12,8 @@ import { esRutValido, rutCanonico } from "@/lib/rut";
 export const MAX_INTEGRANTES = 5;
 export const MAX_EXTERNOS = 2;
 export const EDAD_MINIMA = 18;
+/** Similitud máxima admitida por el control de plagio, en porcentaje. */
+export const SIMILITUD_MAXIMA = 30;
 
 /** Vínculo del integrante con Iplacex. */
 export type Calidad = "estudiante" | "egresado" | "titulado" | "externo";
@@ -24,9 +26,14 @@ export type Integrante = {
   /** Obligatorios para quien no es externo. */
   carrera?: string | null;
   sede?: string | null;
-  fechaNacimiento?: string | null;
+  /**
+   * Edad y matrícula son declaradas por el postulante: no hay verificación
+   * contra los registros de Iplacex. Se guardan como declaración para que
+   * quede constancia de qué afirmó y cuándo.
+   */
+  declaraMayorDeEdad: boolean;
   /** Solo aplica a estudiantes; egresados y titulados no tienen restricción. */
-  matriculaVigente?: boolean | null;
+  declaraMatriculaVigente?: boolean | null;
   esRepresentante: boolean;
 };
 
@@ -40,9 +47,9 @@ export type CodigoProblema =
   | "sin_representante"
   | "representante_duplicado"
   | "representante_externo"
-  | "menor_de_edad"
-  | "fecha_nacimiento_faltante"
-  | "matricula_no_vigente"
+  | "no_declara_mayoria_de_edad"
+  | "no_declara_matricula_vigente"
+  | "supera_similitud"
   | "ya_participa_en_otro_proyecto"
   | "persona_excluida"
   | "postulaciones_cerradas";
@@ -73,13 +80,15 @@ export type ContextoAdmisibilidad = {
   proyectoId?: string;
 };
 
-/** Edad cumplida a una fecha dada. */
-export function edadA(fechaNacimiento: string, fecha: Date): number {
-  const n = new Date(fechaNacimiento);
-  let edad = fecha.getUTCFullYear() - n.getUTCFullYear();
-  const mes = fecha.getUTCMonth() - n.getUTCMonth();
-  if (mes < 0 || (mes === 0 && fecha.getUTCDate() < n.getUTCDate())) edad--;
-  return edad;
+/**
+ * Si el porcentaje de similitud vuelve inadmisible la postulación.
+ *
+ * El análisis se corre al cierre de postulaciones, no al enviar, así que esto
+ * se evalúa aparte del resto de las validaciones. Superar el umbral es
+ * inadmisibilidad automática: no pasa a revisión del Comité Técnico.
+ */
+export function superaSimilitud(pct: number | null | undefined): boolean {
+  return pct != null && pct > SIMILITUD_MAXIMA;
 }
 
 export function validarAdmisibilidad(
@@ -190,26 +199,20 @@ export function validarAdmisibilidad(
       });
     }
 
-    if (!i.fechaNacimiento) {
+    if (i.declaraMayorDeEdad !== true) {
       problemas.push({
-        codigo: "fecha_nacimiento_faltante",
-        mensaje: `Falta la fecha de nacimiento de ${i.nombre}.`,
-        rut: i.rut,
-      });
-    } else if (edadA(i.fechaNacimiento, ahora) < EDAD_MINIMA) {
-      problemas.push({
-        codigo: "menor_de_edad",
-        mensaje: `${i.nombre} debe ser mayor de ${EDAD_MINIMA} años.`,
+        codigo: "no_declara_mayoria_de_edad",
+        mensaje: `${i.nombre} debe declarar ser mayor de ${EDAD_MINIMA} años.`,
         rut: i.rut,
       });
     }
 
     // La matrícula vigente solo se exige a estudiantes: egresados y titulados
     // no tienen restricción de año.
-    if (i.calidad === "estudiante" && i.matriculaVigente !== true) {
+    if (i.calidad === "estudiante" && i.declaraMatriculaVigente !== true) {
       problemas.push({
-        codigo: "matricula_no_vigente",
-        mensaje: `${i.nombre} debe tener matrícula vigente.`,
+        codigo: "no_declara_matricula_vigente",
+        mensaje: `${i.nombre} debe declarar matrícula vigente.`,
         rut: i.rut,
       });
     }

@@ -36,6 +36,7 @@ export type TipoEtapa =
   | "postulacion"
   | "preseleccion"
   | "bootcamp"
+  | "semifinal"
   | "seleccion_finalistas"
   | "demo_day";
 
@@ -56,6 +57,7 @@ export type EtapaDB = {
 export const BADGE_POR_TIPO: Partial<Record<TipoEtapa, string>> = {
   postulacion: "Cierre 23:59",
   bootcamp: "75% mínimo",
+  semifinal: "Con pitch",
   seleccion_finalistas: "Top 10",
   demo_day: "Final",
 };
@@ -153,8 +155,11 @@ export const etapas: Etapa[] = [
   { numero: 2, nombre: "Cierre de postulaciones", descripcion: "La plataforma cierra automáticamente a las 23:59.", plazo: "2 oct", estado: "upcoming", badge: "23:59" },
   { numero: 3, nombre: "Preselección", descripcion: "El Comité Técnico revisa admisibilidad y evalúa sin pitch: corren cuatro criterios y el puntaje se normaliza.", plazo: "9 oct", estado: "upcoming", badge: "Sin pitch" },
   { numero: 4, nombre: "Bootcamp y mentorías", descripcion: "Formación y acompañamiento. Exige asistir al menos al 75% de las sesiones.", plazo: "12 oct – 6 nov", estado: "upcoming", badge: "75% mínimo" },
-  { numero: 5, nombre: "Notificación de finalistas", descripcion: "Se publican los diez proyectos que llegan al Demo Day.", plazo: "6 nov", estado: "upcoming", badge: "Top 10" },
-  { numero: 6, nombre: "Demo Day y premiación", descripcion: "Pitch ante el jurado evaluador y entrega de premios.", plazo: "12 nov", estado: "upcoming", badge: "Final" },
+  // TODO(bases): la fecha de la semifinal, quiénes evalúan y con qué criterios
+  // están pendientes de envío por la Dirección de Formación General.
+  { numero: 5, nombre: "Semifinal", descripcion: "Instancia de evaluación con pitch. Su resultado pondera en la selección de los diez finalistas.", plazo: "Por definir", estado: "upcoming", badge: "Con pitch" },
+  { numero: 6, nombre: "Notificación de finalistas", descripcion: "Se publican los diez proyectos que llegan al Demo Day.", plazo: "6 nov", estado: "upcoming", badge: "Top 10" },
+  { numero: 7, nombre: "Demo Day y premiación", descripcion: "Pitch ante el jurado de siete integrantes y entrega de premios.", plazo: "12 nov", estado: "upcoming", badge: "Final" },
 ];
 
 export type Criterio = {
@@ -199,7 +204,7 @@ export const faqs = [
 
 export const stats = {
   categorias: 3,
-  etapas: 6,
+  etapas: 7,
   evaluadoresPorProyecto: 2,
   criterios: CRITERIOS.length,
   sesionesBootcamp: 5,
