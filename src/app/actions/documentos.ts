@@ -92,7 +92,7 @@ export async function subirDocumento(input: SubirDocumentoInput): Promise<SubirD
   const { data, error: insertError } = await adminClient
     .from("documentos")
     .insert({
-      convocatoria_id: 1, // Convocatoria 2026
+      convocatoria_id: 1, // Challenge IPLACEX 2026
       tipo: input.tipo,
       titulo: input.titulo.trim(),
       descripcion: input.descripcion?.trim() || null,

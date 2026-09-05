@@ -1,5 +1,5 @@
 // Configuración de display para cada estado de postulación.
-// Los valores por defecto se usan cuando la convocatoria no define los suyos propios.
+// Los valores por defecto se usan cuando el concurso no define los suyos propios.
 // La columna `convocatorias.config.estadosBadge` y `convocatorias.config.transicionesEstado`
 // pueden sobreescribirlos desde la BD.
 
@@ -23,34 +23,37 @@ export interface TransicionEstado {
 }
 
 export const ESTADO_BADGE_DEFAULT: Record<string, EstadoBadgeConfig> = {
-  borrador:           { label: "Borrador",    tone: "neutral"   },
-  enviada:            { label: "Enviada",     tone: "secondary"    },
-  en_revision:        { label: "En revisión", tone: "accent"  },
-  ronda_1_pasada:     { label: "R1 ✓",        tone: "success" },
-  ronda_1_descartada: { label: "R1 ✗",        tone: "neutral"   },
-  ronda_2_pasada:     { label: "R2 ✓",        tone: "success" },
-  ronda_2_descartada: { label: "R2 ✗",        tone: "neutral"   },
-  finalista:          { label: "Finalista",   tone: "primary"  },
-  ganador:            { label: "Ganador",     tone: "accent"  },
+  borrador:           { label: "Borrador",          tone: "neutral"   },
+  enviada:            { label: "Enviada",           tone: "secondary" },
+  en_revision:        { label: "En revisión",       tone: "accent"    },
+  inadmisible:        { label: "Inadmisible",       tone: "neutral"   },
+  preseleccionado:    { label: "Preseleccionado",   tone: "success"   },
+  no_preseleccionado: { label: "No preseleccionado", tone: "neutral"  },
+  descalificado:      { label: "Descalificado",     tone: "warning"   },
+  finalista:          { label: "Finalista",         tone: "primary"   },
+  no_finalista:       { label: "No finalista",      tone: "neutral"   },
+  premiado:           { label: "Premiado",          tone: "accent"    },
 };
 
+// Transiciones que el Comité Técnico y el Comité Organizador pueden aplicar,
+// en el orden del calendario. La descalificación por asistencia al bootcamp se
+// aplica sobre un preseleccionado, que es quien participa en él.
 export const TRANSICIONES_DEFAULT: Record<string, TransicionEstado[]> = {
   enviada: [
-    { label: "Poner en revisión", estado: "en_revision" },
+    { label: "Revisar admisibilidad", estado: "en_revision" },
   ],
   en_revision: [
-    { label: "Pasar Ronda 1 ✓",      estado: "ronda_1_pasada"     },
-    { label: "Descartar Ronda 1 ✗",  estado: "ronda_1_descartada", danger: true },
+    { label: "Declarar inadmisible", estado: "inadmisible", danger: true },
+    { label: "Preseleccionar ✓", estado: "preseleccionado" },
+    { label: "No preseleccionar ✗", estado: "no_preseleccionado", danger: true },
   ],
-  ronda_1_pasada: [
-    { label: "Pasar Ronda 2 ✓",      estado: "ronda_2_pasada"     },
-    { label: "Descartar Ronda 2 ✗",  estado: "ronda_2_descartada", danger: true },
-  ],
-  ronda_2_pasada: [
-    { label: "Marcar Finalista", estado: "finalista" },
+  preseleccionado: [
+    { label: "Marcar finalista ✓", estado: "finalista" },
+    { label: "No pasa a finalista ✗", estado: "no_finalista", danger: true },
+    { label: "Descalificar por asistencia", estado: "descalificado", danger: true },
   ],
   finalista: [
-    { label: "Marcar Ganador 🏆", estado: "ganador" },
+    { label: "Marcar premiado 🏆", estado: "premiado" },
   ],
 };
 

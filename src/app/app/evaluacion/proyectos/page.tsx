@@ -38,7 +38,7 @@ export default async function ProyectosEvaluadorPage() {
 
   const { data: perfil } = await supabase
     .from("usuarios").select("rol").eq("id", user.id).single();
-  if (!perfil || (perfil.rol !== "evaluador" && perfil.rol !== "super_evaluador")) {
+  if (!perfil || (perfil.rol !== "jurado" && perfil.rol !== "comite_tecnico")) {
     redirect("/app");
   }
 
@@ -124,7 +124,7 @@ export default async function ProyectosEvaluadorPage() {
                     <Badge tone={tone}>{badgeLabel}</Badge>
                     {a.proyecto && (
                       <Button
-                        href={`/app/evaluador/proyectos/${a.proyecto.id}`}
+                        href={`/app/evaluacion/proyectos/${a.proyecto.id}`}
                         variant={ev?.estado === "finalizada" ? "ghost" : "secondary"}
                         size="sm"
                       >

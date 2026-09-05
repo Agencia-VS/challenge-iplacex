@@ -76,9 +76,8 @@ export async function cambiarEstadoPostulacion(
 
   const ESTADOS_VALIDOS = [
     "enviada", "en_revision",
-    "ronda_1_pasada", "ronda_1_descartada",
-    "ronda_2_pasada", "ronda_2_descartada",
-    "finalista", "ganador",
+    "inadmisible", "preseleccionado", "no_preseleccionado",
+    "descalificado", "finalista", "no_finalista", "premiado",
   ];
   if (!ESTADOS_VALIDOS.includes(nuevoEstado)) {
     return { ok: false, error: "Estado inválido" };

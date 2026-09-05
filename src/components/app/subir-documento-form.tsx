@@ -129,7 +129,7 @@ export function SubirDocumentoForm() {
             type="text"
             value={titulo}
             onChange={(e) => setTitulo(e.target.value)}
-            placeholder="Ej: Bases de la Convocatoria 2026"
+            placeholder="Ej: Bases del Concurso 2026"
             required
             maxLength={200}
             className={inputClass}

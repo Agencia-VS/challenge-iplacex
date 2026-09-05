@@ -31,12 +31,12 @@ export default async function EvaluadorDashboard() {
     .eq("id", user.id)
     .single();
 
-  if (perfil?.rol && perfil.rol !== "evaluador" && perfil.rol !== "super_evaluador") {
+  if (perfil?.rol && perfil.rol !== "jurado" && perfil.rol !== "comite_tecnico") {
     redirect(`/app/${perfil.rol}`);
   }
 
   const nombre = perfil?.nombre ?? user.email?.split("@")[0] ?? "Evaluador";
-  const esSuperEval = perfil?.rol === "super_evaluador";
+  const esComiteTecnico = perfil?.rol === "comite_tecnico";
 
   // Proyectos asignados al evaluador
   const { data: rawAsignaciones } = await supabase
@@ -89,7 +89,7 @@ export default async function EvaluadorDashboard() {
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="brand-eyebrow text-brand-secondary">
-            {esSuperEval ? "Super Evaluador" : "Evaluador"}
+            {esComiteTecnico ? "Comité Técnico" : "Jurado Evaluador"}
           </p>
           <h1 className="brand-display mt-1.5 text-[36px] leading-tight text-brand-primary md:text-[44px]">
             Hola, {nombre.split(" ")[0]}
@@ -98,7 +98,7 @@ export default async function EvaluadorDashboard() {
             Revisa los proyectos asignados y registra tus evaluaciones antes del cierre de ronda.
           </p>
         </div>
-        <Button href="/app/evaluador/proyectos" variant="tertiary">
+        <Button href="/app/evaluacion/proyectos" variant="tertiary">
           Ver proyectos asignados →
         </Button>
       </header>
@@ -115,7 +115,7 @@ export default async function EvaluadorDashboard() {
         <div className="border-b border-brand-line px-6 py-4">
           <p className="brand-eyebrow">Proyectos asignados</p>
           <h2 className="mt-1 text-[17px] font-semibold text-brand-ink">
-            {esSuperEval ? "Ronda activa — Todos los proyectos" : "Ronda activa — Tus asignaciones"}
+            {esComiteTecnico ? "Etapa activa — Todos los proyectos" : "Etapa activa — Tus asignaciones"}
           </h2>
         </div>
         {asignaciones.length === 0 ? (
@@ -164,7 +164,7 @@ export default async function EvaluadorDashboard() {
                         : "Pendiente"}
                   </Badge>
                   <Button
-                    href={`/app/evaluador/proyectos/${p.id}`}
+                    href={`/app/evaluacion/proyectos/${p.id}`}
                     variant={evEstado === "finalizada" ? "ghost" : "secondary"}
                     size="sm"
                   >

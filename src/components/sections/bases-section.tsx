@@ -14,7 +14,7 @@ export async function BasesCard({ compact = false }: { compact?: boolean }) {
   const docs = await obtenerDocumentosPublicos();
   const bases = docs.find(d => d.tipo === "bases");
 
-  const titulo = bases?.titulo ?? "Bases de la Convocatoria 2026";
+  const titulo = bases?.titulo ?? "Bases del Concurso 2026";
   const url = bases?.archivo_url ?? "/bases/bases-challenge-iplacex-2026.pdf";
   const versionTexto = bases?.version ? `v${bases.version}` : "v1.0";
   const nombreArchivo = bases?.archivo_nombre ?? "bases-challenge-iplacex-2026.pdf";

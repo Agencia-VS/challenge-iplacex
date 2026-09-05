@@ -4,6 +4,15 @@ import { revalidatePath } from "next/cache";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { calcularPuntaje, estaCompleta, type CriterioSlug, type NivelDesempeno, type EtapaEvaluacion } from "@/lib/rubrica";
+import { validarAdmisibilidad, type Calidad } from "@/lib/admisibilidad";
+import { rutCanonico } from "@/lib/rut";
+
+/** Tope del resumen ejecutivo, en palabras, según las Bases. */
+const MAX_PALABRAS_RESUMEN = 200;
+
+function contarPalabras(texto: string): number {
+  return texto.trim().split(/\s+/).filter(Boolean).length;
+}
 
 async function getSupabase() {
   const cookieStore = await cookies();
@@ -35,18 +44,28 @@ function extractYoutubeId(url: string): string | null {
   return null;
 }
 
+export type IntegranteInput = {
+  rut: string;
+  nombre: string;
+  correo: string;
+  calidad: Calidad;
+  carrera: string;
+  sede: string;
+  esRepresentante: boolean;
+};
+
 export type PostulacionInput = {
   proyectoId?: string;
   categoriaNumero: 1 | 2 | 3;
   nombreProyecto: string;
-  descripcionBreve: string;
-  problemaResuelve: string;
+  resumenEjecutivo: string;
+  problema: string;
+  segmentoUsuarios: string;
   solucion: string;
-  estadoProyecto: string;
+  ods: number[];
+  declaracionAutoria: boolean;
   equipoNombre: string;
-  equipoIntegrantes: number;
-  equipoDescripcion: string;
-  videoUrl: string;
+  integrantes: IntegranteInput[];
   enviar: boolean; // true = enviar / false = guardar borrador
 };
 
@@ -59,13 +78,22 @@ export async function guardarPostulacion(input: PostulacionInput): Promise<Actio
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "No autenticado" };
 
+  // Al enviar se exige la postulación completa. El borrador puede quedar a
+  // medias: solo se guarda lo que haya.
   if (input.enviar) {
-    if (!input.nombreProyecto?.trim()) return { ok: false, error: "Nombre del proyecto requerido" };
-    if (!input.descripcionBreve?.trim()) return { ok: false, error: "Descripción requerida" };
-    if (!input.videoUrl?.trim()) return { ok: false, error: "Video pitch requerido" };
+    if (!input.nombreProyecto?.trim()) return { ok: false, error: "Falta el nombre del proyecto" };
+    if (!input.resumenEjecutivo?.trim()) return { ok: false, error: "Falta el resumen ejecutivo" };
+    if (contarPalabras(input.resumenEjecutivo) > MAX_PALABRAS_RESUMEN) {
+      return { ok: false, error: `El resumen ejecutivo supera las ${MAX_PALABRAS_RESUMEN} palabras` };
+    }
+    if (!input.problema?.trim()) return { ok: false, error: "Falta el problema u oportunidad" };
+    if (!input.segmentoUsuarios?.trim()) return { ok: false, error: "Falta el segmento de usuarios" };
+    if (!input.solucion?.trim()) return { ok: false, error: "Falta la solución" };
+    if (!input.ods?.length) return { ok: false, error: "Debes vincular al menos un ODS" };
+    if (!input.declaracionAutoria) {
+      return { ok: false, error: "Debes aceptar la declaración de autoría y las bases" };
+    }
   }
-
-  const videoIdYoutube = extractYoutubeId(input.videoUrl);
 
   // Buscar convocatoria y categoría actuales
   const { data: convocatoria } = await supabase
@@ -87,20 +115,42 @@ export async function guardarPostulacion(input: PostulacionInput): Promise<Actio
 
   // codigo_ciego es asignado por el trigger assign_codigo_ciego en la DB
   // enviada_at es asignado por el trigger set_enviada_at en la DB
+  // Las validaciones de admisibilidad corren en el servidor aunque el
+  // formulario ya las muestre: el cliente es una conveniencia, no una garantía.
+  if (input.enviar) {
+    const problemas = validarAdmisibilidad(
+      input.integrantes.map((i) => ({
+        rut: i.rut,
+        nombre: i.nombre,
+        correo: i.correo,
+        calidad: i.calidad,
+        carrera: i.carrera,
+        sede: i.sede,
+        esRepresentante: i.esRepresentante,
+        // La fecha de nacimiento y la matrícula las acredita el Comité Técnico
+        // contra los registros de Iplacex, no el propio postulante.
+        fechaNacimiento: null,
+        matriculaVigente: i.calidad === "estudiante" ? true : null,
+      })),
+      { proyectoId: input.proyectoId },
+    ).filter((p) => p.codigo !== "fecha_nacimiento_faltante");
+    if (problemas.length > 0) return { ok: false, error: problemas[0].mensaje };
+  }
+
+  // codigo_ciego es asignado por el trigger assign_codigo_ciego en la DB
+  // enviada_at es asignado por el trigger set_enviada_at en la DB
   const payload = {
     convocatoria_id: convocatoria.id,
     categoria_id: categoria.id,
     postulante_id: user.id,
     nombre_proyecto: input.nombreProyecto || null,
-    descripcion_breve: input.descripcionBreve || null,
-    problema_resuelve: input.problemaResuelve || null,
+    resumen_ejecutivo: input.resumenEjecutivo || null,
+    problema: input.problema || null,
+    segmento_usuarios: input.segmentoUsuarios || null,
     solucion: input.solucion || null,
-    estado_proyecto: input.estadoProyecto || null,
+    ods: input.ods?.length ? input.ods : null,
+    declaracion_autoria: input.declaracionAutoria,
     equipo_nombre: input.equipoNombre || null,
-    equipo_integrantes: input.equipoIntegrantes,
-    equipo_descripcion: input.equipoDescripcion || null,
-    video_url: input.videoUrl || null,
-    video_id_youtube: videoIdYoutube,
     estado_postulacion: input.enviar ? "enviada" : "borrador",
   };
 
@@ -111,6 +161,8 @@ export async function guardarPostulacion(input: PostulacionInput): Promise<Actio
       .eq("id", input.proyectoId)
       .eq("postulante_id", user.id);
     if (error) return { ok: false, error: error.message };
+    const errIntegrantes = await guardarIntegrantes(supabase, input.proyectoId, input.integrantes);
+    if (errIntegrantes) return { ok: false, error: errIntegrantes };
     revalidatePath("/app/postulante");
     return { ok: true, proyectoId: input.proyectoId };
   }
@@ -124,8 +176,48 @@ export async function guardarPostulacion(input: PostulacionInput): Promise<Actio
 
   if (error) return { ok: false, error: error.message };
 
+  const errIntegrantes = await guardarIntegrantes(supabase, data.id, input.integrantes);
+  if (errIntegrantes) return { ok: false, error: errIntegrantes };
+
   revalidatePath("/app/postulante");
   return { ok: true, proyectoId: data.id };
+}
+
+/**
+ * Reemplaza los integrantes del proyecto. El formulario siempre envía la lista
+ * completa, así que se borra y se reinserta en vez de reconciliar fila por fila.
+ *
+ * El índice único (convocatoria_id, rut) de la base es el que hace cumplir que
+ * una persona no figure en dos proyectos, y su violación llega hasta acá.
+ */
+async function guardarIntegrantes(
+  supabase: Awaited<ReturnType<typeof getSupabase>>,
+  proyectoId: string,
+  integrantes: IntegranteInput[],
+): Promise<string | null> {
+  await supabase.from("integrantes").delete().eq("proyecto_id", proyectoId);
+  const filas = integrantes
+    .filter((i) => i.rut.trim() && i.nombre.trim())
+    .map((i) => ({
+      proyecto_id: proyectoId,
+      // Se guarda canónico para que la deduplicación no dependa del formato.
+      rut: rutCanonico(i.rut),
+      nombre: i.nombre.trim(),
+      correo: i.correo.trim().toLowerCase(),
+      calidad: i.calidad,
+      carrera: i.carrera?.trim() || null,
+      sede: i.sede?.trim() || null,
+      es_representante: i.esRepresentante,
+      // convocatoria_id lo rellena el trigger set_integrante_convocatoria.
+      convocatoria_id: 0,
+    }));
+  if (filas.length === 0) return null;
+  const { error } = await supabase.from("integrantes").insert(filas);
+  if (!error) return null;
+  if (error.code === "23505") {
+    return "Uno de los integrantes ya participa en otro proyecto. Cada persona puede postular a uno solo.";
+  }
+  return error.message;
 }
 
 // Guardar evaluacion
@@ -184,6 +276,6 @@ export async function guardarEvaluacion(input: EvaluacionInput): Promise<ActionR
     .update({ estado: input.finalizar ? "finalizada" : "en_progreso" })
     .eq("id", input.asignacionId);
 
-  revalidatePath("/app/evaluador");
+  revalidatePath("/app/evaluacion");
   return { ok: true, proyectoId: input.proyectoId };
 }

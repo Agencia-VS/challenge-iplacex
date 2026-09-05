@@ -4,9 +4,9 @@ import { NextResponse, type NextRequest } from "next/server";
 // Rutas base por rol — a donde redirige el login exitoso
 const ROLE_HOME: Record<string, string> = {
   postulante: "/app/postulante",
-  evaluador: "/app/evaluador",
+  comite_tecnico: "/app/evaluacion",
+  jurado: "/app/evaluacion",
   admin: "/app/admin",
-  super_evaluador: "/app/evaluador",
 };
 
 export async function proxy(request: NextRequest) {

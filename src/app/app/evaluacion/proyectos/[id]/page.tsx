@@ -39,7 +39,7 @@ export default async function EvaluarProyectoPage({ params }: PageProps) {
     .select("rol")
     .eq("id", user.id)
     .single();
-  if (!usuario || (usuario.rol !== "evaluador" && usuario.rol !== "super_evaluador")) {
+  if (!usuario || (usuario.rol !== "jurado" && usuario.rol !== "comite_tecnico")) {
     redirect("/app");
   }
 
@@ -58,7 +58,7 @@ export default async function EvaluarProyectoPage({ params }: PageProps) {
     .eq("proyecto_id", id)
     .eq("evaluador_id", user.id)
     .maybeSingle();
-  if (!asignacion) redirect("/app/evaluador");
+  if (!asignacion) redirect("/app/evaluacion");
 
   // Los criterios y sus ponderaciones salen de la rúbrica (src/lib/rubrica.ts),
   // no de la base: es la traducción directa del anexo de Bases.
@@ -71,7 +71,7 @@ export default async function EvaluarProyectoPage({ params }: PageProps) {
   // TODO(bases): confirmar el mapeo cuando el cronograma definitivo esté fijado.
   const tipoEtapa = (asignacion.etapas as unknown as { tipo: string } | null)?.tipo;
   const etapaEvaluacion: EtapaEvaluacion =
-    tipoEtapa === "evaluacion_1" ? "preseleccion" : "final";
+    tipoEtapa === "preseleccion" ? "preseleccion" : "final";
 
   const { data: prevEval } = await supabase
     .from("evaluaciones")

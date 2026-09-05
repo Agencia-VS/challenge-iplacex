@@ -49,7 +49,7 @@ CREATE POLICY "entregas_postulante" ON public.entregas
 
 -- Staff (admin / evaluador) puede leer las entregas para evaluarlas.
 CREATE POLICY "entregas_staff_select" ON public.entregas
-  FOR SELECT USING (public.get_my_rol() IN ('admin', 'evaluador', 'super_evaluador'));
+  FOR SELECT USING (public.get_my_rol() IN ('admin', 'jurado', 'comite_tecnico'));
 
 -- ================================================================================
 -- Verificación:

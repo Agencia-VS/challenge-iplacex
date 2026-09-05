@@ -10,8 +10,8 @@ import { crearEvaluador } from "@/app/actions/evaluadores";
 import { BRAND } from "@/lib/brand";
 
 const ROLES = [
-  { value: "evaluador", label: "Evaluador", desc: "Evalúa proyectos asignados" },
-  { value: "super_evaluador", label: "Super Evaluador", desc: "Evalúa + ve ranking consolidado" },
+  { value: "jurado", label: "Jurado Evaluador", desc: "Evalúa los proyectos del Demo Day" },
+  { value: "comite_tecnico", label: "Comité Técnico", desc: "Admisibilidad, preselección y reclasificación de categoría" },
   { value: "admin", label: "Admin", desc: "Acceso completo al panel" },
 ] as const;
 
@@ -22,7 +22,7 @@ export function CrearEvaluadorForm({ onSuccess }: { onSuccess: () => void }) {
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [rol, setRol] = useState<Rol>("evaluador");
+  const [rol, setRol] = useState<Rol>("jurado");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,7 +39,7 @@ export function CrearEvaluadorForm({ onSuccess }: { onSuccess: () => void }) {
     setNombre("");
     setEmail("");
     setPassword("");
-    setRol("evaluador");
+    setRol("jurado");
     router.refresh();
     onSuccess();
   }

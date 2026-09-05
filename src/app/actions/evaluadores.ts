@@ -10,7 +10,7 @@ export type CrearEvaluadorInput = {
   nombre: string;
   email: string;
   password: string;
-  rol: "evaluador" | "super_evaluador" | "admin";
+  rol: "jurado" | "comite_tecnico" | "admin";
 };
 
 export type ActionResult =
@@ -56,7 +56,7 @@ export async function crearEvaluador(input: CrearEvaluadorInput): Promise<Action
   if (password.length < 8) {
     return { ok: false, error: "La contraseña debe tener al menos 8 caracteres" };
   }
-  if (!["evaluador", "super_evaluador", "admin"].includes(rol)) {
+  if (!["jurado", "comite_tecnico", "admin"].includes(rol)) {
     return { ok: false, error: "Rol inválido" };
   }
 

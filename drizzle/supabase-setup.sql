@@ -12,22 +12,15 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 DO $$ BEGIN
   CREATE TYPE public.rol AS ENUM (
-    'postulante', 'evaluador', 'admin', 'super_evaluador'
-  );
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-
-DO $$ BEGIN
-  CREATE TYPE public.estado_proyecto AS ENUM (
-    'idea', 'validacion_problema', 'mvp', 'prototipo_validado', 'producto_activo'
+    'postulante', 'comite_tecnico', 'jurado', 'admin'
   );
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
   CREATE TYPE public.estado_postulacion AS ENUM (
     'borrador', 'enviada', 'en_revision',
-    'ronda_1_pasada', 'ronda_1_descartada',
-    'ronda_2_pasada', 'ronda_2_descartada',
-    'finalista', 'ganador'
+    'inadmisible', 'preseleccionado', 'no_preseleccionado',
+    'descalificado', 'finalista', 'no_finalista', 'premiado'
   );
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
@@ -39,8 +32,8 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
   CREATE TYPE public.tipo_etapa AS ENUM (
-    'postulacion', 'formacion', 'evaluacion_1',
-    'entrega_2', 'evaluacion_2', 'pitch', 'mentoria', 'demo_day'
+    'postulacion', 'preseleccion', 'bootcamp',
+    'seleccion_finalistas', 'demo_day'
   );
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
@@ -48,6 +41,12 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- CONVOCATORIAS
 -- Estado: borrador -> abierta -> cerrada -> finalizada
+DO $$ BEGIN
+  CREATE TYPE public.calidad_integrante AS ENUM (
+    'estudiante', 'egresado', 'titulado', 'externo'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
 CREATE TABLE IF NOT EXISTS public.convocatorias (
   id           SERIAL       PRIMARY KEY,
   ano          INTEGER      NOT NULL UNIQUE,
@@ -105,19 +104,19 @@ CREATE TABLE IF NOT EXISTS public.criterios (
   UNIQUE (convocatoria_id, slug)
 );
 
--- CAPSULAS de formacion (se desbloquean semana a semana)
-CREATE TABLE IF NOT EXISTS public.capsulas (
+-- SESIONES del bootcamp. La asistencia minima del 75% las hace contables.
+CREATE TABLE IF NOT EXISTS public.sesiones_bootcamp (
   id               SERIAL       PRIMARY KEY,
   convocatoria_id  INTEGER      NOT NULL REFERENCES public.convocatorias(id),
   numero           INTEGER      NOT NULL,
   titulo           VARCHAR(200) NOT NULL,
   descripcion      TEXT,
-  video_url        TEXT,
-  recursos         JSONB,
-  disponible_desde TIMESTAMPTZ,
-  tags             JSONB,
+  fecha            TIMESTAMPTZ,
+  duracion_minutos INTEGER,
+  recursos         JSONB,   -- [{ titulo, url }]
   UNIQUE (convocatoria_id, numero)
 );
+
 
 -- USUARIOS (espejo de auth.users, sincronizado por trigger)
 CREATE TABLE IF NOT EXISTS public.usuarios (
@@ -149,19 +148,29 @@ CREATE TABLE IF NOT EXISTS public.proyectos (
   codigo_ciego       VARCHAR(10) NOT NULL UNIQUE,  -- asignado por trigger
   convocatoria_id    INTEGER     NOT NULL REFERENCES public.convocatorias(id),
   categoria_id       INTEGER     NOT NULL REFERENCES public.categorias(id),
+  -- Representante del equipo: la unica contraparte oficial ante el concurso.
   postulante_id      UUID        NOT NULL REFERENCES public.usuarios(id),
 
-  -- Campos del formulario (nullable para borradores parciales)
+  -- Campos del formulario. Nullable porque un borrador puede guardarse
+  -- incompleto; el CHECK de mas abajo los exige recien al enviar.
   nombre_proyecto    VARCHAR(100),
-  descripcion_breve  TEXT,
-  problema_resuelve  TEXT,
-  solucion           TEXT,
-  estado_proyecto    public.estado_proyecto,
+  resumen_ejecutivo  TEXT,        -- maximo 200 palabras, se valida en el form
+  problema           TEXT,        -- problema u oportunidad
+  segmento_usuarios  TEXT,
+  solucion           TEXT,        -- solucion y propuesta de valor
+  ods                INTEGER[],   -- numeros 1..17 de la Agenda 2030
+
+  -- Declaracion de autoria propia y aceptacion de bases.
+  declaracion_autoria BOOLEAN NOT NULL DEFAULT false,
+
+  -- Control de plagio: maximo 30% de similitud.
+  -- TODO(bases): falta definir con que herramienta se integra.
+  similitud_pct      REAL,
 
   equipo_nombre      VARCHAR(200),
-  equipo_integrantes INTEGER,
-  equipo_descripcion TEXT,
 
+  -- Material audiovisual. Opcional: a diferencia del concurso anterior, las
+  -- Bases no exigen video para postular.
   video_url          TEXT,
   video_id_youtube   VARCHAR(50),
 
@@ -172,14 +181,87 @@ CREATE TABLE IF NOT EXISTS public.proyectos (
   created_at         TIMESTAMPTZ DEFAULT now(),
   updated_at         TIMESTAMPTZ DEFAULT now(),
 
-  -- Un postulante tiene un solo proyecto por convocatoria
+  -- Una persona = un solo proyecto. El tope por representante lo cubre esta
+  -- restriccion; el de cada integrante lo cubre `integrantes`.
   UNIQUE (postulante_id, convocatoria_id),
 
-  -- Si el proyecto esta enviado debe tener nombre y video como minimo
+  -- Campos que las Bases exigen para enviar la postulacion.
   CONSTRAINT chk_enviada_completa CHECK (
     estado_postulacion = 'borrador'
-    OR (nombre_proyecto IS NOT NULL AND video_url IS NOT NULL)
-  )
+    OR (
+      nombre_proyecto IS NOT NULL
+      AND resumen_ejecutivo IS NOT NULL
+      AND problema IS NOT NULL
+      AND segmento_usuarios IS NOT NULL
+      AND solucion IS NOT NULL
+      AND ods IS NOT NULL AND array_length(ods, 1) >= 1
+      AND declaracion_autoria = true
+    )
+  ),
+
+  CONSTRAINT chk_similitud CHECK (similitud_pct IS NULL OR similitud_pct BETWEEN 0 AND 100)
+);
+
+-- INTEGRANTES del equipo. Existen como tabla propia porque las Bases prohiben
+-- que una persona figure en dos proyectos, y esa verificacion es por
+-- integrante y no solo por representante.
+CREATE TABLE IF NOT EXISTS public.integrantes (
+  id             UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
+  proyecto_id    UUID    NOT NULL REFERENCES public.proyectos(id) ON DELETE CASCADE,
+  -- Denormalizado desde el proyecto. Un indice unico no admite subconsultas,
+  -- asi que la convocatoria viaja en la fila; un trigger la mantiene en sync.
+  convocatoria_id INTEGER NOT NULL REFERENCES public.convocatorias(id),
+  -- RUT en forma canonica: sin puntos ni guion, K en mayuscula.
+  rut            VARCHAR(12) NOT NULL,
+  nombre         VARCHAR(200) NOT NULL,
+  correo         VARCHAR(255) NOT NULL,
+  calidad        public.calidad_integrante NOT NULL,
+  carrera        VARCHAR(200),
+  sede           VARCHAR(200),
+  fecha_nacimiento DATE,
+  matricula_vigente BOOLEAN,
+  es_representante BOOLEAN NOT NULL DEFAULT false,
+  created_at     TIMESTAMPTZ DEFAULT now(),
+
+  -- Nadie repetido dentro del mismo equipo.
+  UNIQUE (proyecto_id, rut)
+);
+
+-- Una persona, un solo proyecto por convocatoria. Es la regla que las Bases
+-- declaran causal de inadmisibilidad, y la base la hace cumplir por si sola.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_integrante_unico_por_convocatoria
+  ON public.integrantes (convocatoria_id, rut);
+
+-- Rellena convocatoria_id desde el proyecto, para que quien inserta no tenga
+-- que recordarlo y no pueda desincronizarlo.
+CREATE OR REPLACE FUNCTION public.set_integrante_convocatoria()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  SELECT convocatoria_id INTO NEW.convocatoria_id
+  FROM public.proyectos WHERE id = NEW.proyecto_id;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_integrante_convocatoria ON public.integrantes;
+CREATE TRIGGER trg_integrante_convocatoria
+  BEFORE INSERT OR UPDATE OF proyecto_id ON public.integrantes
+  FOR EACH ROW EXECUTE FUNCTION public.set_integrante_convocatoria();
+
+-- ASISTENCIA al bootcamp. Las Bases exigen un 75% minimo; bajo eso el proyecto
+-- queda descalificado. Se registra por proyecto y no por persona, porque la
+-- consecuencia recae sobre el proyecto.
+CREATE TABLE IF NOT EXISTS public.asistencias (
+  id             UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
+  sesion_id      INTEGER NOT NULL REFERENCES public.sesiones_bootcamp(id),
+  proyecto_id    UUID    NOT NULL REFERENCES public.proyectos(id),
+  presente       BOOLEAN NOT NULL DEFAULT false,
+  observacion    TEXT,
+  registrado_por UUID    REFERENCES public.usuarios(id),
+  created_at     TIMESTAMPTZ DEFAULT now(),
+  UNIQUE (sesion_id, proyecto_id)
 );
 
 -- ARCHIVOS adjuntos (cascade delete cuando se borra el proyecto)
@@ -451,7 +533,8 @@ ALTER TABLE public.convocatorias  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.categorias     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.etapas         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.criterios      ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.capsulas       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sesiones_bootcamp       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.asistencias    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_log      ENABLE ROW LEVEL SECURITY;
 
 -- USUARIOS
@@ -465,7 +548,7 @@ DROP POLICY IF EXISTS "admin_ve_todos_usuarios"     ON public.usuarios;
 CREATE POLICY "usuarios_select_propio" ON public.usuarios
   FOR SELECT USING (id = (select auth.uid()));
 CREATE POLICY "usuarios_select_admin" ON public.usuarios
-  FOR SELECT USING (public.get_my_rol() IN ('admin', 'super_evaluador'));
+  FOR SELECT USING (public.get_my_rol() IN ('admin', 'comite_tecnico'));
 CREATE POLICY "usuarios_update_propio" ON public.usuarios
   FOR UPDATE USING (id = (select auth.uid())) WITH CHECK (id = (select auth.uid()));
 
@@ -490,7 +573,7 @@ CREATE POLICY "proyectos_postulante_select" ON public.proyectos
 -- Evaluador solo ve proyectos que tiene asignados (evaluacion ciega)
 CREATE POLICY "proyectos_evaluador_select" ON public.proyectos
   FOR SELECT USING (
-    public.get_my_rol() = 'evaluador'
+    public.get_my_rol() = 'jurado'
     AND EXISTS (
       SELECT 1 FROM public.asignaciones
       WHERE proyecto_id = proyectos.id AND evaluador_id = (select auth.uid())
@@ -498,7 +581,7 @@ CREATE POLICY "proyectos_evaluador_select" ON public.proyectos
   );
 
 CREATE POLICY "proyectos_admin_select" ON public.proyectos
-  FOR SELECT USING (public.get_my_rol() IN ('admin', 'super_evaluador'));
+  FOR SELECT USING (public.get_my_rol() IN ('admin', 'comite_tecnico'));
 
 -- Solo postulantes pueden crear proyectos para si mismos
 CREATE POLICY "proyectos_insert" ON public.proyectos
@@ -526,12 +609,12 @@ DROP POLICY IF EXISTS "admin_super_ven_evaluaciones"  ON public.evaluaciones;
 CREATE POLICY "eval_insert" ON public.evaluaciones
   FOR INSERT WITH CHECK (
     evaluador_id = (select auth.uid())
-    AND public.get_my_rol() IN ('evaluador', 'super_evaluador')
+    AND public.get_my_rol() IN ('jurado', 'comite_tecnico')
   );
 CREATE POLICY "eval_propia" ON public.evaluaciones
   FOR ALL USING (evaluador_id = (select auth.uid()));
 CREATE POLICY "eval_admin_super" ON public.evaluaciones
-  FOR SELECT USING (public.get_my_rol() IN ('admin', 'super_evaluador'));
+  FOR SELECT USING (public.get_my_rol() IN ('admin', 'comite_tecnico'));
 
 -- ASIGNACIONES
 DROP POLICY IF EXISTS "asig_evaluador_select" ON public.asignaciones;
@@ -544,7 +627,7 @@ CREATE POLICY "asig_evaluador_select" ON public.asignaciones
 CREATE POLICY "asig_evaluador_update" ON public.asignaciones
   FOR UPDATE USING (evaluador_id = (select auth.uid()));
 CREATE POLICY "asig_admin_all" ON public.asignaciones
-  FOR ALL USING (public.get_my_rol() IN ('admin', 'super_evaluador'));
+  FOR ALL USING (public.get_my_rol() IN ('admin', 'comite_tecnico'));
 
 -- ARCHIVOS
 DROP POLICY IF EXISTS "archivos_postulante"   ON public.archivos;
@@ -557,7 +640,7 @@ CREATE POLICY "archivos_postulante" ON public.archivos
     )
   );
 CREATE POLICY "archivos_staff_select" ON public.archivos
-  FOR SELECT USING (public.get_my_rol() IN ('admin', 'evaluador', 'super_evaluador'));
+  FOR SELECT USING (public.get_my_rol() IN ('admin', 'jurado', 'comite_tecnico'));
 
 -- DOCUMENTOS
 DROP POLICY IF EXISTS "docs_autenticado_select" ON public.documentos;
@@ -575,29 +658,29 @@ DROP POLICY IF EXISTS "convocatorias_select" ON public.convocatorias;
 DROP POLICY IF EXISTS "categorias_select"    ON public.categorias;
 DROP POLICY IF EXISTS "etapas_select"        ON public.etapas;
 DROP POLICY IF EXISTS "criterios_select"     ON public.criterios;
-DROP POLICY IF EXISTS "capsulas_select"      ON public.capsulas;
+DROP POLICY IF EXISTS "sesiones_bootcamp_select"      ON public.sesiones_bootcamp;
 DROP POLICY IF EXISTS "convocatorias_admin"  ON public.convocatorias;
 DROP POLICY IF EXISTS "categorias_admin"     ON public.categorias;
 DROP POLICY IF EXISTS "etapas_admin"         ON public.etapas;
 DROP POLICY IF EXISTS "criterios_admin"      ON public.criterios;
-DROP POLICY IF EXISTS "capsulas_admin"       ON public.capsulas;
+DROP POLICY IF EXISTS "sesiones_bootcamp_admin"       ON public.sesiones_bootcamp;
 -- Limpiar políticas legacy
 DROP POLICY IF EXISTS "publico_lee_convocatorias"    ON public.convocatorias;
 DROP POLICY IF EXISTS "publico_lee_categorias"       ON public.categorias;
 DROP POLICY IF EXISTS "publico_lee_etapas"           ON public.etapas;
 DROP POLICY IF EXISTS "publico_lee_criterios"        ON public.criterios;
-DROP POLICY IF EXISTS "autenticado_lee_capsulas"     ON public.capsulas;
+DROP POLICY IF EXISTS "autenticado_lee_sesiones_bootcamp"     ON public.sesiones_bootcamp;
 
 -- Agregar política pública para cápsulas (landing page anónimo)
-DROP POLICY IF EXISTS "capsulas_public_select" ON public.capsulas;
-CREATE POLICY "capsulas_public_select" ON public.capsulas
+DROP POLICY IF EXISTS "sesiones_bootcamp_public_select" ON public.sesiones_bootcamp;
+CREATE POLICY "sesiones_bootcamp_public_select" ON public.sesiones_bootcamp
   FOR SELECT USING (true);
 
 CREATE POLICY "convocatorias_select" ON public.convocatorias FOR SELECT USING (true);
 CREATE POLICY "categorias_select"    ON public.categorias    FOR SELECT USING (true);
 CREATE POLICY "etapas_select"        ON public.etapas        FOR SELECT USING (true);
 CREATE POLICY "criterios_select"     ON public.criterios     FOR SELECT USING (true);
-CREATE POLICY "capsulas_select"      ON public.capsulas
+CREATE POLICY "sesiones_bootcamp_select"      ON public.sesiones_bootcamp
   FOR SELECT USING ((select auth.uid()) IS NOT NULL);
 CREATE POLICY "convocatorias_admin"  ON public.convocatorias
   FOR ALL USING (public.get_my_rol() = 'admin');
@@ -607,7 +690,7 @@ CREATE POLICY "etapas_admin"         ON public.etapas
   FOR ALL USING (public.get_my_rol() = 'admin');
 CREATE POLICY "criterios_admin"      ON public.criterios
   FOR ALL USING (public.get_my_rol() = 'admin');
-CREATE POLICY "capsulas_admin"       ON public.capsulas
+CREATE POLICY "sesiones_bootcamp_admin"       ON public.sesiones_bootcamp
   FOR ALL USING (public.get_my_rol() = 'admin');
 
 -- AUDIT LOG
@@ -659,3 +742,18 @@ END $$;
 --      Funcion: public.custom_access_token_hook
 --   2. Auth > Providers > Enable Google OAuth (Client ID + Secret)
 -- ================================================================================
+
+-- Asistencias: el postulante ve la de su proyecto; el Comite Tecnico y el
+-- Comite Organizador la registran.
+DROP POLICY IF EXISTS "asistencias_propias" ON public.asistencias;
+CREATE POLICY "asistencias_propias" ON public.asistencias
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.proyectos p
+      WHERE p.id = asistencias.proyecto_id AND p.postulante_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "asistencias_comite" ON public.asistencias;
+CREATE POLICY "asistencias_comite" ON public.asistencias
+  FOR ALL USING (public.get_my_rol() IN ('admin', 'comite_tecnico'));

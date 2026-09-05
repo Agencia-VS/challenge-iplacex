@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { AppSidebar } from "@/components/app/app-sidebar";
 import { BRAND } from "@/lib/brand";
 
-type Rol = "postulante" | "evaluador" | "admin" | "super_evaluador";
+type Rol = "postulante" | "jurado" | "admin" | "comite_tecnico";
 
 export default async function AppLayout({
   children,

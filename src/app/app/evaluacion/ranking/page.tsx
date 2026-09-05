@@ -54,7 +54,7 @@ export default async function RankingPage() {
     .select("rol")
     .eq("id", user.id)
     .single();
-  if (!usuario || usuario.rol !== "super_evaluador") redirect("/app");
+  if (!usuario || usuario.rol !== "comite_tecnico") redirect("/app");
 
   // Proyectos + evaluaciones
   const { data: proyectos } = await supabase
@@ -64,7 +64,7 @@ export default async function RankingPage() {
       codigo_ciego,
       evaluaciones ( puntaje_ponderado, estado )
     `)
-    .in("estado_postulacion", ["enviada", "en_revision", "ronda_1_pasada"]);
+    .in("estado_postulacion", ["enviada", "en_revision", "preseleccionado", "finalista"]);
 
   const rows = ((proyectos ?? []) as unknown as ProyectoRow[]).map((p) => {
     const finalizadas = (p.evaluaciones ?? []).filter((e) => e.estado === "finalizada");
@@ -90,7 +90,7 @@ export default async function RankingPage() {
   return (
     <div className="space-y-6 pb-20">
       <header>
-        <p className="brand-eyebrow text-brand-accent">Super Evaluador</p>
+        <p className="brand-eyebrow text-brand-accent">Comité Técnico</p>
         <h1 className="brand-display mt-1.5 text-[32px] leading-tight text-brand-primary md:text-[40px]">
           Ranking consolidado
         </h1>

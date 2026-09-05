@@ -26,7 +26,7 @@ import { createBrowserClient } from "@supabase/ssr";
 import { useRouter } from "next/navigation";
 
 // ─── Tipos ──────────────────────────────────────────────────────────────────
-type Rol = "postulante" | "evaluador" | "admin" | "super_evaluador";
+type Rol = "postulante" | "jurado" | "admin" | "comite_tecnico";
 
 interface NavItem {
   href: string;
@@ -55,30 +55,30 @@ const NAV_CONFIG: Record<Rol, NavGroup[]> = {
     {
       section: "Formación",
       items: [
-        { href: "/app/postulante/capsulas", label: "Cápsulas", icon: BookOpen },
+        { href: "/app/postulante/bootcamp", label: "Bootcamp", icon: BookOpen },
       ],
     },
   ],
 
-  evaluador: [
+  jurado: [
     {
       section: "Evaluación",
       items: [
-        { href: "/app/evaluador", label: "Dashboard", icon: LayoutDashboard },
-        { href: "/app/evaluador/proyectos", label: "Proyectos asignados", icon: FolderKanban },
-        { href: "/app/evaluador/mis-evaluaciones", label: "Mis evaluaciones", icon: ClipboardList },
+        { href: "/app/evaluacion", label: "Dashboard", icon: LayoutDashboard },
+        { href: "/app/evaluacion/proyectos", label: "Proyectos asignados", icon: FolderKanban },
+        { href: "/app/evaluacion/mis-evaluaciones", label: "Mis evaluaciones", icon: ClipboardList },
       ],
     },
   ],
 
-  super_evaluador: [
+  comite_tecnico: [
     {
       section: "Evaluación",
       items: [
-        { href: "/app/evaluador", label: "Dashboard", icon: LayoutDashboard },
-        { href: "/app/evaluador/proyectos", label: "Proyectos asignados", icon: FolderKanban },
-        { href: "/app/evaluador/mis-evaluaciones", label: "Mis evaluaciones", icon: ClipboardList },
-        { href: "/app/evaluador/ranking", label: "Ranking general", icon: Star },
+        { href: "/app/evaluacion", label: "Dashboard", icon: LayoutDashboard },
+        { href: "/app/evaluacion/proyectos", label: "Proyectos asignados", icon: FolderKanban },
+        { href: "/app/evaluacion/mis-evaluaciones", label: "Mis evaluaciones", icon: ClipboardList },
+        { href: "/app/evaluacion/ranking", label: "Ranking general", icon: Star },
       ],
     },
   ],
@@ -106,8 +106,8 @@ const NAV_CONFIG: Record<Rol, NavGroup[]> = {
 // ─── Role badge ───────────────────────────────────────────────────────────────
 const ROLE_LABEL: Record<Rol, { label: string; color: string }> = {
   postulante: { label: "Postulante", color: "bg-brand-accent-soft text-brand-accent" },
-  evaluador: { label: "Evaluador", color: "bg-brand-secondary-soft text-brand-secondary" },
-  super_evaluador: { label: "Super Eval.", color: "bg-brand-secondary-soft text-brand-secondary" },
+  jurado: { label: "Jurado", color: "bg-brand-secondary-soft text-brand-secondary" },
+  comite_tecnico: { label: "Comité Técnico", color: "bg-brand-secondary-soft text-brand-secondary" },
   admin: { label: "Admin", color: "bg-brand-primary text-white" },
 };
 

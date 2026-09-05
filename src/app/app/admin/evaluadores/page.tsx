@@ -30,7 +30,7 @@ export default async function EvaluadoresAdminPage() {
   const { data: rawEvals } = await supabase
     .from("usuarios")
     .select("id, nombre, email, rol")
-    .in("rol", ["evaluador", "super_evaluador"])
+    .in("rol", ["jurado", "comite_tecnico"])
     .order("nombre");
 
   const evaluadores = (rawEvals ?? []) as Usuario[];

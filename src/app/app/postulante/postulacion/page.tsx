@@ -16,10 +16,11 @@ const ESTADO_CONFIG: Record<string, {
   borrador:           { label: "Borrador",          tone: "warning"  },
   enviada:            { label: "Enviada ✓",          tone: "secondary"     },
   en_revision:        { label: "En revisión",        tone: "accent"   },
-  ronda_1_pasada:     { label: "Ronda 1 ✓",          tone: "success"  },
-  ronda_1_descartada: { label: "No seleccionada",    tone: "neutral"    },
-  ronda_2_pasada:     { label: "Ronda 2 ✓",          tone: "success"  },
-  ronda_2_descartada: { label: "No seleccionada",    tone: "neutral"    },
+  inadmisible:        { label: "Inadmisible",       tone: "neutral"  },
+  preseleccionado:    { label: "Preseleccionado ✓",  tone: "success"  },
+  no_preseleccionado: { label: "No seleccionada",    tone: "neutral"  },
+  descalificado:      { label: "Descalificada",      tone: "warning"  },
+  no_finalista:       { label: "No finalista",       tone: "neutral"  },
   finalista:          { label: "Finalista 🏆",        tone: "primary"   },
   ganador:            { label: "Ganador 🥇",           tone: "accent"   },
 };
@@ -42,9 +43,8 @@ export default async function MiPostulacionPage() {
   const { data: proyecto } = await supabase
     .from("proyectos")
     .select(`
-      id, codigo_ciego, nombre_proyecto, descripcion_breve,
-      estado_proyecto, estado_postulacion, video_url,
-      equipo_nombre, equipo_integrantes, created_at, enviada_at,
+      id, codigo_ciego, nombre_proyecto, resumen_ejecutivo,
+      estado_postulacion, ods, equipo_nombre, created_at, enviada_at,
       categorias ( nombre )
     `)
     .eq("postulante_id", user.id)
@@ -56,12 +56,11 @@ export default async function MiPostulacionPage() {
     id: string;
     codigo_ciego: string;
     nombre_proyecto: string | null;
-    descripcion_breve: string | null;
-    estado_proyecto: string | null;
+    resumen_ejecutivo: string | null;
+    ods: number[] | null;
     estado_postulacion: string;
     video_url: string | null;
     equipo_nombre: string | null;
-    equipo_integrantes: number | null;
     created_at: string;
     enviada_at: string | null;
     categorias: { nombre: string } | null;
@@ -107,9 +106,9 @@ export default async function MiPostulacionPage() {
                 <h2 className="brand-display mt-0.5 text-[24px] text-brand-primary">
                   {p.nombre_proyecto ?? "(sin nombre)"}
                 </h2>
-                {p.descripcion_breve && (
+                {p.resumen_ejecutivo && (
                   <p className="mt-2 max-w-xl text-[13px] leading-relaxed text-brand-ink-soft">
-                    {p.descripcion_breve}
+                    {p.resumen_ejecutivo}
                   </p>
                 )}
               </div>
@@ -128,15 +127,15 @@ export default async function MiPostulacionPage() {
                 <dt className="brand-eyebrow">Equipo</dt>
                 <dd className="mt-1 text-brand-ink">
                   {p.equipo_nombre ?? "—"}
-                  {p.equipo_integrantes
-                    ? ` · ${p.equipo_integrantes} persona${p.equipo_integrantes > 1 ? "s" : ""}`
+                  {p.ods?.length
+                    ? ` · ${p.ods.length} ODS`
                     : ""}
                 </dd>
               </div>
               <div>
                 <dt className="brand-eyebrow">Estado del proyecto</dt>
                 <dd className="mt-1 capitalize text-brand-ink">
-                  {p.estado_proyecto?.replace(/_/g, " ") ?? "—"}
+                  {p.ods?.length ? `${p.ods.length} ODS vinculados` : "—"}
                 </dd>
               </div>
               <div>

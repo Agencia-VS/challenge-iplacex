@@ -40,7 +40,7 @@ export default async function AdminProyectosPage() {
   const { data: rawEvaluadores } = await supabase
     .from("usuarios")
     .select("id, nombre, email, rol")
-    .in("rol", ["evaluador", "super_evaluador"])
+    .in("rol", ["jurado", "comite_tecnico"])
     .order("nombre");
 
   // Etapa de evaluación: activa hoy, o la próxima si todavía no comenzó
@@ -48,7 +48,7 @@ export default async function AdminProyectosPage() {
   const { data: etapa } = await supabase
     .from("etapas")
     .select("id, nombre, fecha_inicio, convocatoria_id")
-    .in("tipo", ["evaluacion_1", "evaluacion_2"])
+    .in("tipo", ["preseleccion", "demo_day"])
     .gte("fecha_fin", new Date().toISOString())   // no ha terminado aún
     .order("fecha_inicio", { ascending: true })   // la más próxima primero
     .limit(1)

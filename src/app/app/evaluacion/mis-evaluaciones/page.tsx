@@ -30,7 +30,7 @@ export default async function MisEvaluacionesPage() {
 
   const { data: perfil } = await supabase
     .from("usuarios").select("rol").eq("id", user.id).single();
-  if (!perfil || (perfil.rol !== "evaluador" && perfil.rol !== "super_evaluador")) {
+  if (!perfil || (perfil.rol !== "jurado" && perfil.rol !== "comite_tecnico")) {
     redirect("/app");
   }
 
@@ -70,7 +70,7 @@ export default async function MisEvaluacionesPage() {
               Aquí aparecerán las evaluaciones que registres.
             </p>
           </div>
-          <Button href="/app/evaluador/proyectos" variant="tertiary">
+          <Button href="/app/evaluacion/proyectos" variant="tertiary">
             Ver proyectos asignados →
           </Button>
         </Card>

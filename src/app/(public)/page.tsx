@@ -3,7 +3,7 @@ import { CategoriasSection } from "@/components/sections/categorias-section";
 import { BasesSection } from "@/components/sections/bases-section";
 import { FunnelSection } from "@/components/sections/funnel-section";
 import { CriteriosSection } from "@/components/sections/criterios-section";
-import { CapsulasSection } from "@/components/sections/capsulas-section";
+import { BootcampSection } from "@/components/sections/bootcamp-section";
 import { FaqSection } from "@/components/sections/faq-section";
 import { CtaSection } from "@/components/sections/cta-section";
 
@@ -15,7 +15,7 @@ export default function HomePage() {
       <BasesSection />
       <FunnelSection />
       <CriteriosSection />
-      <CapsulasSection />
+      <BootcampSection />
       <FaqSection />
       <CtaSection />
     </>

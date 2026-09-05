@@ -28,13 +28,13 @@ export default async function PostularPage() {
     .select(`
       id,
       nombre_proyecto,
-      descripcion_breve,
-      problema_resuelve,
+      resumen_ejecutivo,
+      problema,
+      segmento_usuarios,
       solucion,
-      estado_proyecto,
+      ods,
+      declaracion_autoria,
       equipo_nombre,
-      equipo_integrantes,
-      equipo_descripcion,
       video_url,
       categorias ( numero )
     `)
@@ -48,13 +48,13 @@ export default async function PostularPage() {
     ? {
         categoriaNumero: ((proyectoExistente.categorias as unknown as { numero: 1 | 2 | 3 } | null)?.numero ?? 1) as 1 | 2 | 3,
         nombreProyecto: proyectoExistente.nombre_proyecto ?? "",
-        descripcionBreve: proyectoExistente.descripcion_breve ?? "",
-        problemaResuelve: proyectoExistente.problema_resuelve ?? "",
+        resumenEjecutivo: proyectoExistente.resumen_ejecutivo ?? "",
+        problema: proyectoExistente.problema ?? "",
+        segmentoUsuarios: proyectoExistente.segmento_usuarios ?? "",
         solucion: proyectoExistente.solucion ?? "",
-        estadoProyecto: proyectoExistente.estado_proyecto ?? "",
+        ods: proyectoExistente.ods ?? [],
+        declaracionAutoria: proyectoExistente.declaracion_autoria ?? false,
         equipoNombre: proyectoExistente.equipo_nombre ?? "",
-        equipoIntegrantes: proyectoExistente.equipo_integrantes ?? 1,
-        equipoDescripcion: proyectoExistente.equipo_descripcion ?? "",
         videoUrl: proyectoExistente.video_url ?? "",
       }
     : {};

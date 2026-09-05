@@ -7,7 +7,7 @@ import { etapas } from "@/lib/site";
 export const metadata: Metadata = { title: "Bases de la convocatoria" };
 
 const historial = [
-  { v: "v1.0", fecha: "Julio 2026", nota: "Publicación inicial bases convocatoria 2026." },
+  { v: "v1.0", fecha: "Agosto 2026", nota: "Publicación inicial de las Bases del Concurso." },
 ];
 
 export default function BasesPage() {
@@ -15,7 +15,7 @@ export default function BasesPage() {
     <Section
       eyebrow="Documento oficial"
       eyebrowTone="accent"
-      title="Bases de la Convocatoria 2026"
+      title="Bases del Concurso 2026"
       description="Toda la información legal, plazos, criterios y procedimientos de la convocatoria en un solo PDF descargable."
     >
       <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">

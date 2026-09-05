@@ -1,23 +1,29 @@
 import type { TipoEtapa } from "@/lib/site";
 
 /**
- * Configuración de qué etapas son "entregables" por el postulante y qué acepta
- * cada una. Aditivo: NO incluye `postulacion` (la postulación no se toca).
+ * Qué etapas admiten una entrega del postulante y qué acepta cada una.
  *
- * El `estado_postulacion` del proyecto (que mueve el admin al avanzar de ronda)
- * es lo que habilita cada entrega.
+ * TODO(bases): las Bases no definen campos de carga de archivos, pese a que la
+ * Categoría 2 exige acreditar ventas o contratos y el Demo Day requiere
+ * material de presentación. Los entregables de abajo son provisorios y están
+ * pendientes de confirmación con la Dirección de Formación General; el
+ * mecanismo ya funciona, lo que falta es la definición.
+ *
+ * La postulación misma nunca es un entregable: se edita en su propio
+ * formulario y se cierra con el plazo.
  */
 
 export type EstadoPostulacion =
   | "borrador"
   | "enviada"
   | "en_revision"
-  | "ronda_1_pasada"
-  | "ronda_1_descartada"
-  | "ronda_2_pasada"
-  | "ronda_2_descartada"
+  | "inadmisible"
+  | "preseleccionado"
+  | "no_preseleccionado"
+  | "descalificado"
   | "finalista"
-  | "ganador";
+  | "no_finalista"
+  | "premiado";
 
 export interface EntregableConfig {
   titulo: string;
@@ -29,41 +35,27 @@ export interface EntregableConfig {
   habilitadaEn: EstadoPostulacion[];
 }
 
-// Estados "seleccionado en ronda 1" en adelante.
-const DESDE_RONDA_1: EstadoPostulacion[] = [
-  "ronda_1_pasada",
-  "ronda_2_pasada",
-  "finalista",
-  "ganador",
-];
-// Estados "finalista" en adelante.
-const DESDE_RONDA_2: EstadoPostulacion[] = ["ronda_2_pasada", "finalista", "ganador"];
+/** Quien fue preseleccionado participa del bootcamp y sigue en carrera. */
+const EN_CARRERA: EstadoPostulacion[] = ["preseleccionado", "finalista", "premiado"];
+/** Solo los finalistas presentan en el Demo Day. */
+const FINALISTAS: EstadoPostulacion[] = ["finalista", "premiado"];
 
-/** Config por tipo de etapa. Los tipos no listados no son entregables. */
 export const ENTREGABLES: Partial<Record<TipoEtapa, EntregableConfig>> = {
-  entrega_2: {
-    titulo: "Video Pitch",
-    descripcion: "Sube tu Video Pitch (máx. 3 min) y material de apoyo para la 2.ª Entrega.",
-    aceptaVideo: true,
-    aceptaArchivos: true,
-    aceptaTexto: true,
-    habilitadaEn: DESDE_RONDA_1,
-  },
-  pitch: {
-    titulo: "Pitch 60 segundos",
-    descripcion: "Sube el video de tu pitch de 60 segundos.",
-    aceptaVideo: true,
-    aceptaArchivos: false,
-    aceptaTexto: true,
-    habilitadaEn: DESDE_RONDA_2,
-  },
-  mentoria: {
-    titulo: "Mentoría",
+  bootcamp: {
+    titulo: "Avances del bootcamp",
     descripcion: "Comparte avances, prototipos o material para tus sesiones de mentoría.",
     aceptaVideo: false,
     aceptaArchivos: true,
     aceptaTexto: true,
-    habilitadaEn: DESDE_RONDA_2,
+    habilitadaEn: EN_CARRERA,
+  },
+  demo_day: {
+    titulo: "Material del Demo Day",
+    descripcion: "Sube la presentación con que expondrás ante el jurado.",
+    aceptaVideo: true,
+    aceptaArchivos: true,
+    aceptaTexto: true,
+    habilitadaEn: FINALISTAS,
   },
 };
 
@@ -85,7 +77,7 @@ export interface EntregaHabilitada {
 }
 
 /**
- * Dado el estado de la postulación y las etapas de la convocatoria, devuelve las
+ * Dado el estado de la postulación y las etapas del concurso, devuelve las
  * etapas entregables (ordenadas por número) indicando cuáles están habilitadas.
  */
 export function entregasHabilitadas(

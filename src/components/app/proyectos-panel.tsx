@@ -226,8 +226,8 @@ export function ProyectosPanel({
                                         <span className="flex-1 text-[13px] text-brand-ink">
                                           {ev.nombre}
                                         </span>
-                                        <Badge tone={ev.rol === "super_evaluador" ? "secondary" : "neutral"}>
-                                          {ev.rol === "super_evaluador" ? "Super" : "Eval."}
+                                        <Badge tone={ev.rol === "comite_tecnico" ? "secondary" : "neutral"}>
+                                          {ev.rol === "comite_tecnico" ? "Comité" : "Jurado"}
                                         </Badge>
                                       </label>
                                     );

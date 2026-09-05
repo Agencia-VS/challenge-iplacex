@@ -34,12 +34,9 @@ export type Etapa = {
 // Tipo de etapa según el enum `tipo_etapa` en la DB (src/lib/db/schema.ts).
 export type TipoEtapa =
   | "postulacion"
-  | "formacion"
-  | "evaluacion_1"
-  | "entrega_2"
-  | "evaluacion_2"
-  | "pitch"
-  | "mentoria"
+  | "preseleccion"
+  | "bootcamp"
+  | "seleccion_finalistas"
   | "demo_day";
 
 // Fila de la tabla `etapas` tal como la devuelve Supabase (snake_case).
@@ -57,9 +54,9 @@ export type EtapaDB = {
 // Rótulos de cupos/rangos curados en código (la tabla `etapas` no tiene columna
 // para esto). Se mapean por tipo de etapa.
 export const BADGE_POR_TIPO: Partial<Record<TipoEtapa, string>> = {
-  evaluacion_1: "Top 60 · 16",
-  evaluacion_2: "Finalistas",
-  mentoria: "Top 10",
+  postulacion: "Cierre 23:59",
+  bootcamp: "75% mínimo",
+  seleccion_finalistas: "Top 10",
   demo_day: "Final",
 };
 
@@ -105,7 +102,7 @@ export function formatPlazo(
   fin: string | null,
   semanaInicio: number | null = null,
 ): string {
-  if ((tipo === "formacion" || tipo === "mentoria") && inicio && fin) {
+  if (tipo === "bootcamp" && inicio && fin) {
     return rangoFechas(inicio, fin);
   }
   if (tipo === "demo_day" && inicio) {
@@ -172,7 +169,7 @@ export const criterios: Criterio[] = CRITERIOS.map((c) => ({
   descripcion: c.evalua,
 }));
 
-export type Capsula = {
+export type SesionBootcamp = {
   numero: number;
   titulo: string;
   resumen: string;
@@ -182,8 +179,8 @@ export type Capsula = {
 
 // TODO(bases): el temario del bootcamp no viene definido en las Bases. Estos
 // títulos son un marcador de posición hasta que la Dirección de Formación
-// General entregue el programa de sesiones.
-export const capsulas: Capsula[] = [
+// General entregue el programa de sesiones y sus fechas.
+export const sesionesBootcamp: SesionBootcamp[] = [
   { numero: 1, titulo: "Define tu problema", resumen: "Cómo delimitar un problema y su segmento de usuarios.", duracion: "12 min" },
   { numero: 2, titulo: "Propuesta de valor", resumen: "Diferenciación frente a las alternativas existentes.", duracion: "14 min" },
   { numero: 3, titulo: "Viabilidad", resumen: "Modelo de negocio, recursos y ruta de validación.", duracion: "15 min" },
@@ -205,7 +202,7 @@ export const stats = {
   etapas: 6,
   evaluadoresPorProyecto: 2,
   criterios: CRITERIOS.length,
-  capsulas: 5,
+  sesionesBootcamp: 5,
   nivelesDesempeno: 4,
   puntajeAprobacion: 60,
 } as const;

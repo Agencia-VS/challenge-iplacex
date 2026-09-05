@@ -48,7 +48,7 @@ export default async function AdminDashboard() {
     supabase
       .from("usuarios")
       .select("id", { count: "exact", head: true })
-      .in("rol", ["evaluador", "super_evaluador"]),
+      .in("rol", ["jurado", "comite_tecnico"]),
     supabase
       .from("etapas")
       .select("nombre, numero, fecha_fin")
@@ -66,7 +66,7 @@ export default async function AdminDashboard() {
     { estado: "borrador",    label: "Borrador",           tone: "warning" },
     { estado: "enviada",     label: "Enviadas",           tone: "secondary"    },
     { estado: "en_revision", label: "En revisión",        tone: "accent"  },
-    { estado: "ronda_1_pasada", label: "Ronda 1 aprobadas", tone: "primary" },
+    { estado: "preseleccionado", label: "Preseleccionados", tone: "primary" },
   ];
   const funnelData = FUNNEL.map(f => ({
     ...f,

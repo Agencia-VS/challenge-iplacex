@@ -95,7 +95,7 @@ export function EvaluacionForm({
       kind: "ok",
       msg: finalizar ? "✅ Evaluación enviada" : "💾 Progreso guardado",
     });
-    if (finalizar) setTimeout(() => router.push("/app/evaluador"), 1200);
+    if (finalizar) setTimeout(() => router.push("/app/evaluacion"), 1200);
     else router.refresh();
   }
 

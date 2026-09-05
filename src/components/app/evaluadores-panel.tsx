@@ -19,15 +19,15 @@ export interface EvaluadorRow {
 }
 
 const ROL_TONE = {
-  super_evaluador: "secondary",
+  comite_tecnico: "secondary",
   admin: "primary",
-  evaluador: "neutral",
+  jurado: "neutral",
 } as const;
 
 const ROL_LABEL = {
-  super_evaluador: "Super Eval.",
+  comite_tecnico: "Comité Técnico",
   admin: "Admin",
-  evaluador: "Evaluador",
+  jurado: "Evaluador",
 } as const;
 
 export function EvaluadoresPanel({ evaluadores }: { evaluadores: EvaluadorRow[] }) {

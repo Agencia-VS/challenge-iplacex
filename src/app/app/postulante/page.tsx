@@ -62,8 +62,8 @@ export default async function PostulanteDashboard() {
         .from("proyectos")
         .select(`
           id, nombre_proyecto, estado_postulacion,
-          descripcion_breve, problema_resuelve, solucion,
-          equipo_nombre, equipo_integrantes, video_url
+          resumen_ejecutivo, problema, segmento_usuarios, solucion,
+          ods, declaracion_autoria, equipo_nombre
         `)
         .eq("postulante_id", user.id)
         .eq("convocatoria_id", convocatoria.id)
@@ -80,9 +80,9 @@ export default async function PostulanteDashboard() {
     : { data: [] };
 
   // Total de cápsulas en la convocatoria activa
-  const { count: totalCapsulas } = convocatoria
+  const { count: totalSesiones } = convocatoria
     ? await supabase
-        .from("capsulas")
+        .from("sesiones_bootcamp")
         .select("id", { count: "exact", head: true })
         .eq("convocatoria_id", convocatoria.id)
     : { count: 0 };
@@ -107,10 +107,10 @@ export default async function PostulanteDashboard() {
 
   // Secciones del formulario y progreso (4 secciones, cada una = 25%)
   const secciones = [
-    { label: "Información general",      done: !!(proyecto?.nombre_proyecto && proyecto?.descripcion_breve) },
-    { label: "Descripción del problema", done: !!proyecto?.problema_resuelve },
+    { label: "Información general",      done: !!(proyecto?.nombre_proyecto && proyecto?.resumen_ejecutivo) },
+    { label: "Problema y segmento",      done: !!(proyecto?.problema && proyecto?.segmento_usuarios) },
     { label: "Solución propuesta",       done: !!proyecto?.solucion },
-    { label: "Equipo",                   done: !!(proyecto?.equipo_nombre && proyecto?.equipo_integrantes) },
+    { label: "ODS y declaración",        done: !!(proyecto?.ods?.length && proyecto?.declaracion_autoria) },
   ];
   const progreso = Math.round((secciones.filter(s => s.done).length / secciones.length) * 100);
 
@@ -146,7 +146,7 @@ export default async function PostulanteDashboard() {
         />
         <Stat
           label="Cápsulas"
-          value={totalCapsulas !== null ? String(totalCapsulas) : "—"}
+          value={totalSesiones !== null ? String(totalSesiones) : "—"}
           tone="secondary"
           detail="Disponibles en el programa"
         />

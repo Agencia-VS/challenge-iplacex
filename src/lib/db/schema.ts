@@ -10,36 +10,38 @@ import {
   jsonb,
   uuid,
   real,
+  date,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 // ─── ENUMS ──────────────────────────────────────────────────────────────────
 
+// Los cuatro roles de las Bases. El Comité Técnico revisa admisibilidad,
+// evalúa la preselección y puede reclasificar categorías; el Jurado evalúa el
+// Demo Day; el Comité Organizador (admin) configura fechas y publica resultados.
 export const rolEnum = pgEnum("rol", [
   "postulante",
-  "evaluador",
+  "comite_tecnico",
+  "jurado",
   "admin",
-  "super_evaluador",
 ]);
 
-export const estadoProyectoEnum = pgEnum("estado_proyecto", [
-  "idea",
-  "validacion_problema",
-  "mvp",
-  "prototipo_validado",
-  "producto_activo",
-]);
 
+// Ciclo de vida de una postulación, según el calendario de las Bases:
+// se envía, el Comité Técnico revisa admisibilidad, evalúa la preselección,
+// los preseleccionados hacen el bootcamp —donde se puede quedar descalificado
+// por asistencia— y de ahí salen los finalistas del Demo Day.
 export const estadoPostulacionEnum = pgEnum("estado_postulacion", [
   "borrador",
   "enviada",
   "en_revision",
-  "ronda_1_pasada",
-  "ronda_1_descartada",
-  "ronda_2_pasada",
-  "ronda_2_descartada",
+  "inadmisible",
+  "preseleccionado",
+  "no_preseleccionado",
+  "descalificado",
   "finalista",
-  "ganador",
+  "no_finalista",
+  "premiado",
 ]);
 
 export const estadoEvaluacionEnum = pgEnum("estado_evaluacion", [
@@ -48,14 +50,13 @@ export const estadoEvaluacionEnum = pgEnum("estado_evaluacion", [
   "finalizada",
 ]);
 
+// Los hitos del calendario oficial. Las fechas viven en la tabla `etapas`
+// porque la organización se reserva el derecho de moverlas.
 export const tipoEtapaEnum = pgEnum("tipo_etapa", [
   "postulacion",
-  "formacion",
-  "evaluacion_1",
-  "entrega_2",
-  "evaluacion_2",
-  "pitch",
-  "mentoria",
+  "preseleccion",
+  "bootcamp",
+  "seleccion_finalistas",
   "demo_day",
 ]);
 
@@ -133,7 +134,9 @@ export const criterios = pgTable("criterios", {
 
 // ─── CÁPSULAS ────────────────────────────────────────────────────────────────
 
-export const capsulas = pgTable("capsulas", {
+// Sesiones del bootcamp. Las Bases exigen asistir al menos al 75% de ellas,
+// así que cada sesión es una unidad contable y no solo material de estudio.
+export const sesionesBootcamp = pgTable("sesiones_bootcamp", {
   id: serial("id").primaryKey(),
   convocatoriaId: integer("convocatoria_id")
     .references(() => convocatorias.id)
@@ -141,10 +144,26 @@ export const capsulas = pgTable("capsulas", {
   numero: integer("numero").notNull(),
   titulo: varchar("titulo", { length: 200 }).notNull(),
   descripcion: text("descripcion"),
-  videoUrl: text("video_url"),
+  fecha: timestamp("fecha"),
+  duracionMinutos: integer("duracion_minutos"),
+  /** Material de apoyo: enlaces a grabación, presentación, lecturas. */
   recursos: jsonb("recursos").$type<{ titulo: string; url: string }[]>(),
-  disponibleDesde: timestamp("disponible_desde"),
-  tags: jsonb("tags").$type<string[]>(),
+});
+
+// Asistencia a cada sesión. Se registra por proyecto y no por persona porque
+// la consecuencia de las Bases —la descalificación— recae sobre el proyecto.
+export const asistencias = pgTable("asistencias", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  sesionId: integer("sesion_id")
+    .references(() => sesionesBootcamp.id)
+    .notNull(),
+  proyectoId: uuid("proyecto_id")
+    .references(() => proyectos.id)
+    .notNull(),
+  presente: boolean("presente").notNull().default(false),
+  observacion: text("observacion"),
+  registradoPor: uuid("registrado_por").references(() => usuarios.id),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // ─── USUARIOS ─────────────────────────────────────────────────────────────────
@@ -164,7 +183,7 @@ export const usuarios = pgTable("usuarios", {
 
 export const proyectos = pgTable("proyectos", {
   id: uuid("id").defaultRandom().primaryKey(),
-  // Código ciego para evaluación: TC-0001, EM-0001
+  // Código ciego para evaluación: C1-0001, C2-0001, C3-0001 según categoría.
   codigoCiego: varchar("codigo_ciego", { length: 10 }).notNull().unique(),
   convocatoriaId: integer("convocatoria_id")
     .references(() => convocatorias.id)
@@ -172,33 +191,76 @@ export const proyectos = pgTable("proyectos", {
   categoriaId: integer("categoria_id")
     .references(() => categorias.id)
     .notNull(),
+  /** Representante del equipo: la única contraparte oficial ante el concurso. */
   postulanteId: uuid("postulante_id")
     .references(() => usuarios.id)
     .notNull(),
 
-  // Datos del proyecto
-  nombreProyecto: varchar("nombre_proyecto", { length: 100 }).notNull(),
-  descripcionBreve: text("descripcion_breve"),
-  problemaResuelve: text("problema_resuelve"),
+  // Campos del formulario. Nullable porque un borrador se guarda incompleto;
+  // el CHECK `chk_enviada_completa` los exige recién al enviar.
+  nombreProyecto: varchar("nombre_proyecto", { length: 100 }),
+  /** Máximo 200 palabras; el contador vive en el formulario. */
+  resumenEjecutivo: text("resumen_ejecutivo"),
+  problema: text("problema"),
+  segmentoUsuarios: text("segmento_usuarios"),
   solucion: text("solucion"),
-  estadoProyecto: estadoProyectoEnum("estado_proyecto"),
+  /** Números 1..17 de la Agenda 2030 (ver src/lib/ods.ts). */
+  ods: integer("ods").array(),
 
-  // Equipo
+  /** Declaración de autoría propia y aceptación de bases. */
+  declaracionAutoria: boolean("declaracion_autoria").notNull().default(false),
+
+  // Control de plagio: máximo 30% de similitud.
+  // TODO(bases): falta definir con qué herramienta se integra.
+  similitudPct: real("similitud_pct"),
+
   equipoNombre: varchar("equipo_nombre", { length: 200 }),
-  equipoIntegrantes: integer("equipo_integrantes"),
-  equipoDescripcion: text("equipo_descripcion"),
 
-  // Video pitch (YouTube)
+  // Material audiovisual. Opcional: las Bases no exigen video para postular.
   videoUrl: text("video_url"),
   videoIdYoutube: varchar("video_id_youtube", { length: 50 }),
 
-  // Estado en el funnel
   estadoPostulacion: estadoPostulacionEnum("estado_postulacion").default("borrador"),
   etapaActualId: integer("etapa_actual_id").references(() => etapas.id),
   enviadaAt: timestamp("enviada_at"),
 
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+/** Vínculo del integrante con Iplacex. */
+export const calidadIntegranteEnum = pgEnum("calidad_integrante", [
+  "estudiante",
+  "egresado",
+  "titulado",
+  "externo",
+]);
+
+// Integrantes del equipo. Tabla propia porque las Bases prohíben que una
+// persona figure en dos proyectos, y esa verificación es por integrante y no
+// solo por representante: la base lo impide con un índice único sobre
+// (convocatoria_id, rut).
+export const integrantes = pgTable("integrantes", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  proyectoId: uuid("proyecto_id")
+    .references(() => proyectos.id, { onDelete: "cascade" })
+    .notNull(),
+  /** Denormalizado desde el proyecto por un trigger; sostiene el índice único. */
+  convocatoriaId: integer("convocatoria_id")
+    .references(() => convocatorias.id)
+    .notNull(),
+  /** RUT en forma canónica: sin puntos ni guion, K en mayúscula. */
+  rut: varchar("rut", { length: 12 }).notNull(),
+  nombre: varchar("nombre", { length: 200 }).notNull(),
+  correo: varchar("correo", { length: 255 }).notNull(),
+  calidad: calidadIntegranteEnum("calidad").notNull(),
+  carrera: varchar("carrera", { length: 200 }),
+  sede: varchar("sede", { length: 200 }),
+  fechaNacimiento: date("fecha_nacimiento"),
+  /** Solo se exige a estudiantes. */
+  matriculaVigente: boolean("matricula_vigente"),
+  esRepresentante: boolean("es_representante").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // ─── ARCHIVOS ADJUNTOS ────────────────────────────────────────────────────────
@@ -319,7 +381,7 @@ export const convocatoriasRelations = relations(convocatorias, ({ many }) => ({
   categorias: many(categorias),
   etapas: many(etapas),
   criterios: many(criterios),
-  capsulas: many(capsulas),
+  sesionesBootcamp: many(sesionesBootcamp),
   proyectos: many(proyectos),
   documentos: many(documentos),
 }));
@@ -345,6 +407,7 @@ export const proyectosRelations = relations(proyectos, ({ one, many }) => ({
     fields: [proyectos.postulanteId],
     references: [usuarios.id],
   }),
+  integrantes: many(integrantes),
   archivos: many(archivos),
   entregas: many(entregas),
   asignaciones: many(asignaciones),
@@ -360,6 +423,7 @@ export const entregasRelations = relations(entregas, ({ one, many }) => ({
     fields: [entregas.etapaId],
     references: [etapas.id],
   }),
+  integrantes: many(integrantes),
   archivos: many(archivos),
 }));
 

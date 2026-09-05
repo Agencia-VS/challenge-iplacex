@@ -91,7 +91,7 @@ export default async function ConvocatoriaPage() {
           <div>
             <p className="text-[17px] font-semibold text-brand-primary">Sin convocatoria activa</p>
             <p className="mt-1 text-[13px] text-brand-ink-muted">
-              Ejecuta el SQL de setup en Supabase para crear la convocatoria 2026 con datos iniciales.
+              Ejecuta el SQL de setup en Supabase para crear el concurso 2026 con sus categorías y criterios.
             </p>
           </div>
         </Card>

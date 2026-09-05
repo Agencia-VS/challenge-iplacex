@@ -1,5 +1,5 @@
 -- ================================================================================
--- LIMPIEZA DE DATOS SEED — Convocatoria 2026
+-- LIMPIEZA DE DATOS SEED — Challenge IPLACEX 2026
 -- Ejecutar en Supabase SQL Editor (Settings > SQL Editor)
 -- Elimina todos los datos de prueba en orden correcto (respetando FKs)
 -- ================================================================================
@@ -31,7 +31,7 @@ WHERE categoria_id IN (
 );
 
 -- 4. Cápsulas
-DELETE FROM public.capsulas
+DELETE FROM public.sesiones_bootcamp
 WHERE convocatoria_id IN (SELECT id FROM public.convocatorias WHERE ano = 2026);
 
 -- 5. Criterios
