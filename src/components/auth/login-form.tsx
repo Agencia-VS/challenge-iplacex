@@ -1,0 +1,121 @@
+"use client";
+
+import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { createBrowserClient } from "@supabase/ssr";
+import { Button } from "@/components/ui/button";
+import { Field } from "@/components/auth/field";
+import { BRAND } from "@/lib/brand";
+
+export function LoginForm() {
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  );
+
+  async function handleGoogle() {
+    setError(null);
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${location.origin}/auth/callback?next=/app`,
+      },
+    });
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+    }
+  }
+
+  async function handleEmail(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      setError(error.message === "Invalid login credentials"
+        ? "Email o contraseña incorrectos"
+        : error.message);
+      setLoading(false);
+      return;
+    }
+    router.push("/app");
+    router.refresh();
+  }
+
+  return (
+    <>
+      <Button
+        variant="outline"
+        size="lg"
+        className="mt-7 w-full"
+        onClick={handleGoogle}
+        disabled={loading}
+        type="button"
+      >
+        Continuar con Google
+      </Button>
+
+      <div className="my-5 flex items-center gap-3 text-[11px] uppercase tracking-widest text-brand-ink-muted">
+        <span className="h-px flex-1 bg-brand-line" />
+        o con email
+        <span className="h-px flex-1 bg-brand-line" />
+      </div>
+
+      <form onSubmit={handleEmail} className="space-y-4">
+        <Field
+          label="Email"
+          type="email"
+          name="email"
+          placeholder="tu@correo.cl"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          autoComplete="email"
+        />
+        <Field
+          label="Contraseña"
+          type="password"
+          name="password"
+          placeholder="••••••••"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          autoComplete="current-password"
+        />
+
+        {error && (
+          <p className="rounded-[var(--r-sm)] border border-st-danger/30 bg-st-danger/5 px-3 py-2 text-[12px] text-st-danger">
+            {error}
+          </p>
+        )}
+
+        <Button size="lg" className="w-full" disabled={loading}>
+          {loading ? "Entrando…" : "Entrar"}
+        </Button>
+      </form>
+
+      <p className="mt-6 text-center text-[13px] text-brand-ink-muted">
+        ¿Aún no tienes cuenta?{" "}
+        <Link href="/signup" className="font-semibold text-brand-primary hover:text-brand-accent">
+          Crear cuenta gratis
+        </Link>
+      </p>
+
+      <p className="mt-4 text-center text-[12px] text-brand-ink-muted">
+        ¿Eres evaluador o administrador?{" "}
+        <Link href="/acceso" className="font-medium text-brand-ink-muted underline underline-offset-2 hover:text-brand-primary">
+          Acceso equipo {BRAND.shortName}
+        </Link>
+      </p>
+    </>
+  );
+}

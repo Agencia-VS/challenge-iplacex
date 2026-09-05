@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 151 163" width="151" height="163">
+  <title>Challenge IPLACEX</title>
+  <!--
+    Misma grilla que src/components/brand/mark.tsx, pero con la escala de grises
+    desplazada hacia el extremo oscuro: a 16 px los tonos del logotipo original
+    (#ECEAEB, #D1CDCD) se pierden contra el fondo del navegador.
+  -->
+  <rect x="0"   y="0"   width="51" height="51" fill="#575756"/>
+  <rect x="58"  y="5"   width="46" height="48" fill="#D1CDCD"/>
+  <rect x="110" y="9"   width="41" height="45" fill="#0000FF"/>
+  <rect x="0"   y="57"  width="51" height="49" fill="#A7A1A0"/>
+  <rect x="58"  y="58"  width="46" height="47" fill="#575756"/>
+  <rect x="110" y="59"  width="41" height="45" fill="#A7A1A0"/>
+  <rect x="0"   y="112" width="51" height="51" fill="#D1CDCD"/>
+  <rect x="58"  y="111" width="46" height="48" fill="#A7A1A0"/>
+  <rect x="110" y="109" width="41" height="46" fill="#D1CDCD"/>
+</svg>
