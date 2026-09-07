@@ -5,6 +5,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { etapas as etapasFallback, mapEtapaDB, type EtapaDB, type Etapa } from "@/lib/site";
 import { cn } from "@/lib/cn";
+import { SUPABASE_ANON_KEY, SUPABASE_URL, supabaseConfigurado } from "@/lib/supabase/config";
 
 const stateClass = {
   completed: "bg-brand-secondary text-white",
@@ -13,10 +14,14 @@ const stateClass = {
 } as const;
 
 async function obtenerEtapas(): Promise<Etapa[]> {
+  // Sin base configurada se sirve el cronograma por omisión: el sitio público
+  // es contenido, y no tiene por qué caerse si la base no está disponible.
+  if (!supabaseConfigurado) return etapasFallback;
+
   const cookieStore = await cookies();
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    SUPABASE_URL!,
+    SUPABASE_ANON_KEY!,
     { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } },
   );
 

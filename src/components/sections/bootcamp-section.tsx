@@ -4,6 +4,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { ASISTENCIA_MINIMA } from "@/lib/bootcamp";
 import { sesionesBootcamp as sesionesFallback } from "@/lib/site";
+import { SUPABASE_ANON_KEY, SUPABASE_URL, supabaseConfigurado } from "@/lib/supabase/config";
 
 type SesionDB = {
   id: number;
@@ -12,11 +13,15 @@ type SesionDB = {
   descripcion: string | null;
 };
 
-export async function BootcampSection() {
+async function obtenerSesiones(): Promise<SesionDB[]> {
+  // Sin base configurada se usa el temario por omisión: el sitio público es
+  // contenido y no tiene por qué caerse si la base no está disponible.
+  if (!supabaseConfigurado) return [];
+
   const cookieStore = await cookies();
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    SUPABASE_URL!,
+    SUPABASE_ANON_KEY!,
     { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } },
   );
 
@@ -25,8 +30,14 @@ export async function BootcampSection() {
     .select("id, numero, titulo, descripcion")
     .order("numero", { ascending: true });
 
-  const sesiones = ((data ?? []) as SesionDB[]).length
-    ? (data as SesionDB[]).map((s) => ({
+  return (data ?? []) as SesionDB[];
+}
+
+export async function BootcampSection() {
+  const data = await obtenerSesiones();
+
+  const sesiones = data.length
+    ? data.map((s) => ({
         numero: s.numero,
         titulo: s.titulo,
         resumen: s.descripcion ?? "",

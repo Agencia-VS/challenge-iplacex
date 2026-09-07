@@ -1,21 +1,61 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { AppSidebar } from "@/components/app/app-sidebar";
 import { BRAND } from "@/lib/brand";
+import { SUPABASE_ANON_KEY, SUPABASE_URL, supabaseConfigurado } from "@/lib/supabase/config";
 
 type Rol = "postulante" | "jurado" | "admin" | "comite_tecnico";
+
+/**
+ * Sin credenciales de Supabase no hay a quién autenticar, así que el área
+ * privada no puede funcionar. Se explica qué falta en lugar de responder 500:
+ * el error de librería («Your project's URL and Key are required») no le dice
+ * nada a quien está desplegando.
+ */
+function SinConfigurar() {
+  return (
+    <div className="grid min-h-[100dvh] place-items-center bg-brand-surface px-6">
+      <div className="max-w-md text-center">
+        <p className="brand-eyebrow text-brand-accent">Plataforma sin configurar</p>
+        <h1 className="brand-display mt-2 text-[30px] text-brand-primary">
+          Falta conectar la base de datos
+        </h1>
+        <p className="mt-3 text-[14px] leading-relaxed text-brand-ink-soft">
+          El área privada necesita las credenciales de Supabase. Define{" "}
+          <code className="font-[family-name:var(--font-mono)] text-[13px] text-brand-primary">
+            NEXT_PUBLIC_SUPABASE_URL
+          </code>{" "}
+          y{" "}
+          <code className="font-[family-name:var(--font-mono)] text-[13px] text-brand-primary">
+            NEXT_PUBLIC_SUPABASE_ANON_KEY
+          </code>{" "}
+          en el entorno, y ejecuta los scripts de <code className="font-[family-name:var(--font-mono)] text-[13px] text-brand-primary">drizzle/</code>.
+        </p>
+        <Link
+          href="/"
+          className="mt-6 inline-block rounded-[var(--r-sm)] border border-brand-line-strong px-4 py-2 text-[13px] font-semibold text-brand-primary transition-colors hover:bg-brand-surface-raised"
+        >
+          ← Volver al inicio
+        </Link>
+      </div>
+    </div>
+  );
+}
 
 export default async function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  if (!supabaseConfigurado) return <SinConfigurar />;
+
   const cookieStore = await cookies();
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    SUPABASE_URL!,
+    SUPABASE_ANON_KEY!,
     {
       cookies: {
         getAll() {
