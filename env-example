@@ -1,0 +1,15 @@
+# Copiar a .env.local y completar. Ninguna de estas claves va al repositorio.
+
+# ── Supabase ────────────────────────────────────────────────────────────────
+# Panel del proyecto → Settings → API
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+
+# Clave de servicio: omite las políticas RLS. Solo servidor, nunca en cliente
+# ni con el prefijo NEXT_PUBLIC_.
+SUPABASE_SERVICE_ROLE_KEY=
+
+# ── Base de datos ───────────────────────────────────────────────────────────
+# Cadena de conexión de Postgres, para drizzle-kit y los scripts SQL.
+# Panel del proyecto → Settings → Database → Connection string
+DATABASE_URL=

@@ -1,0 +1,127 @@
+@import "tailwindcss";
+
+/* ════════════════════════════════════════════════
+   Design tokens — nombrados por ROL, no por matiz.
+   Rebrandear = cambiar los valores hex de :root.
+   Mantener en sync con PALETTE en src/lib/brand.ts,
+   que sirve a los consumidores JS (patrón de fondo).
+   ════════════════════════════════════════════════ */
+:root {
+  /* Negro del wordmark y grises del isotipo. */
+  --brand-primary: #0a0a0a;
+  --brand-primary-dark: #000000;
+  --brand-primary-light: #575756;
+  /* Azul puro del cuadro del isotipo: el único color saturado de la marca. */
+  --brand-accent: #0000ff;
+  --brand-accent-light: #3d3dff;
+  --brand-accent-soft: #e6e6ff;
+  --brand-secondary: #575756;
+  --brand-secondary-light: #a7a1a0;
+  --brand-secondary-soft: #eceaeb;
+
+  --brand-surface: #f5f4f4;
+  --brand-surface-soft: #fafafa;
+  --brand-surface-raised: #ffffff;
+  --brand-ink: #0a0a0a;
+  --brand-ink-soft: #575756;
+  --brand-ink-muted: #8a8584;
+  --brand-line: rgba(10, 10, 10, 0.12);
+  --brand-line-strong: rgba(10, 10, 10, 0.24);
+
+  --st-success: #1f8a5c;
+  --st-warning: #b8791b;
+  --st-danger: #c62f2f;
+
+  --r-xs: 6px;
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 28px;
+
+  --sh-sm: 0 1px 2px rgba(10, 10, 10, 0.06);
+  --sh-md: 0 4px 14px rgba(10, 10, 10, 0.08);
+  --sh-lg: 0 12px 32px rgba(10, 10, 10, 0.10);
+}
+
+@theme inline {
+  --color-background: var(--brand-surface);
+  --color-foreground: var(--brand-ink);
+
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-primary-dark: var(--brand-primary-dark);
+  --color-brand-primary-light: var(--brand-primary-light);
+  --color-brand-accent: var(--brand-accent);
+  --color-brand-accent-light: var(--brand-accent-light);
+  --color-brand-accent-soft: var(--brand-accent-soft);
+  --color-brand-secondary: var(--brand-secondary);
+  --color-brand-secondary-light: var(--brand-secondary-light);
+  --color-brand-secondary-soft: var(--brand-secondary-soft);
+
+  --color-brand-surface: var(--brand-surface);
+  --color-brand-surface-soft: var(--brand-surface-soft);
+  --color-brand-surface-raised: var(--brand-surface-raised);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-ink-soft: var(--brand-ink-soft);
+  --color-brand-ink-muted: var(--brand-ink-muted);
+  --color-brand-line: var(--brand-line);
+  --color-brand-line-strong: var(--brand-line-strong);
+
+  --color-st-success: var(--st-success);
+  --color-st-warning: var(--st-warning);
+  --color-st-danger: var(--st-danger);
+
+  --font-display: var(--font-display);
+  --font-heading: var(--font-heading);
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-mono);
+
+  --radius-xs: var(--r-xs);
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-xl: var(--r-xl);
+}
+
+html,
+body {
+  min-height: 100dvh;
+}
+
+body {
+  background: var(--brand-surface);
+  color: var(--brand-ink);
+  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  background-image:
+    radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--brand-accent) 5%, transparent) 0, transparent 45%),
+    radial-gradient(circle at 100% 100%, color-mix(in srgb, var(--brand-secondary) 5%, transparent) 0, transparent 45%);
+}
+
+.brand-eyebrow {
+  font-family: var(--font-heading), sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--brand-ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+.brand-display {
+  font-family: var(--font-display), sans-serif;
+  /* La display es variable y arranca en 400; el peso va explícito. */
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 0.95;
+}
+
+@keyframes brand-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes brand-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
