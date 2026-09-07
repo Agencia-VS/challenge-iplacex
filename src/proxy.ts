@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { SUPABASE_ANON_KEY, SUPABASE_URL, supabaseConfigurado } from "@/lib/supabase/config";
 
 // Rutas base por rol — a donde redirige el login exitoso
 const ROLE_HOME: Record<string, string> = {
@@ -12,9 +13,23 @@ const ROLE_HOME: Record<string, string> = {
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
+  // Sin credenciales no hay a quién autenticar. El sitio público se sirve con
+  // su contenido por omisión; el área privada se desvía a una página que
+  // explica qué falta. Se corta acá y no en el layout de /app porque en el App
+  // Router la página se renderiza en paralelo con su layout: una compuerta en
+  // el layout descarta el resultado, pero la consulta ya se disparó y lanzó.
+  if (!supabaseConfigurado) {
+    if (request.nextUrl.pathname.startsWith("/app")) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/sin-configurar";
+      return NextResponse.redirect(url);
+    }
+    return supabaseResponse;
+  }
+
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    SUPABASE_URL!,
+    SUPABASE_ANON_KEY!,
     {
       cookies: {
         getAll() {

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { supabaseConfigurado } from "@/lib/supabase/config";
 
 async function getSupabase() {
   const cookieStore = await cookies();
@@ -128,6 +129,9 @@ export type DocumentoPublico = {
 };
 
 export async function obtenerDocumentosPublicos(): Promise<DocumentoPublico[]> {
+  // Sin base no hay documentos cargados; la sección cae a su enlace por omisión.
+  if (!supabaseConfigurado) return [];
+
   const supabase = await getSupabase();
 
   const { data } = await supabase
