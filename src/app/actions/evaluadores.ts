@@ -77,18 +77,27 @@ export async function crearEvaluador(input: CrearEvaluadorInput): Promise<Action
     return { ok: false, error: authError.message };
   }
 
-  // 4. El trigger handle_new_user crea la fila en public.usuarios con rol='postulante'
-  //    Actualizamos a continuación al rol correcto + nombre
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: updateError } = await (adminClient as any)
+  // 4. Sincronizar el perfil público. El upsert hace que la creación
+  //    también funcione si el trigger de Auth no está instalado o activo.
+  const { data: perfilCreado, error: perfilError } = await adminClient
     .from("usuarios")
-    .update({ rol, nombre })
-    .eq("id", newUser.user.id);
+    .upsert(
+      {
+        id: newUser.user.id,
+        email: newUser.user.email ?? email,
+        nombre,
+        rol,
+      },
+      { onConflict: "id" },
+    )
+    .select("id")
+    .single();
 
-  if (updateError) {
-    // El usuario Auth fue creado pero falló el update de rol — loguear para revisión manual
-    console.error("crearEvaluador: usuario creado pero fallo update rol", updateError);
-    return { ok: false, error: "Usuario creado pero no se pudo asignar el rol. Contáctate con soporte." };
+  if (perfilError || !perfilCreado) {
+    // Evitar dejar una cuenta Auth huérfana si el perfil no pudo sincronizarse.
+    await adminClient.auth.admin.deleteUser(newUser.user.id);
+    console.error("crearEvaluador: fallo sincronizando perfil", perfilError);
+    return { ok: false, error: "No se pudo completar la creación del evaluador. Inténtalo nuevamente." };
   }
 
   revalidatePath("/app/admin/evaluadores");
