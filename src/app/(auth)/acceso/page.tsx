@@ -6,7 +6,16 @@ import { BRAND } from "@/lib/brand";
 
 export const metadata: Metadata = { title: "Acceso equipo" };
 
-export default function AccesoPage() {
+export default async function AccesoPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ restablecida?: string | string[] }>;
+}) {
+  const params = searchParams ? await searchParams : {};
+  const resetValue = Array.isArray(params.restablecida)
+    ? params.restablecida[0]
+    : params.restablecida;
+
   return (
     <Card className="p-8">
       <div className="mb-6 flex items-center justify-between">
@@ -30,7 +39,7 @@ export default function AccesoPage() {
         .
       </div>
 
-      <AccesoForm />
+      <AccesoForm passwordReset={resetValue === "1"} />
 
       <p className="mt-6 text-center text-[12px] text-brand-ink-muted">
         Si no recuerdas tu contraseña, usa la opción de recuperación del formulario.
