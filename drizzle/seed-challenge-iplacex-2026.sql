@@ -58,6 +58,108 @@ ON CONFLICT (convocatoria_id, slug) DO UPDATE
   SET nombre = EXCLUDED.nombre, descripcion = EXCLUDED.descripcion,
       peso = EXCLUDED.peso, orden = EXCLUDED.orden;
 
+-- 4. Etapas del proceso
+-- El bootcamp representa la semifinal operativa: durante esta etapa los
+-- proyectos entregan los antecedentes solicitados y se define quiénes pasan
+-- al Demo Day. No se crea una etapa pública adicional llamada "semifinal".
+INSERT INTO public.etapas (
+  convocatoria_id, numero, tipo, nombre, descripcion,
+  fecha_inicio, fecha_fin, duracion_dias, semana_inicio, semana_fin
+)
+SELECT
+  c.id,
+  v.numero,
+  v.tipo::public.tipo_etapa,
+  v.nombre,
+  v.descripcion,
+  v.fecha_inicio::timestamptz,
+  v.fecha_fin::timestamptz,
+  v.duracion_dias,
+  v.semana_inicio,
+  v.semana_fin
+FROM public.convocatorias c
+CROSS JOIN (VALUES
+  (
+    1,
+    'postulacion',
+    'Lanzamiento y apertura',
+    'Se inicia la recepción de proyectos mediante la plataforma.',
+    '2026-09-14 12:00:00+00',
+    '2026-09-14 12:00:00+00',
+    1,
+    NULL,
+    NULL
+  ),
+  (
+    2,
+    'postulacion',
+    'Cierre de postulaciones',
+    'Finaliza la recepción de proyectos y comienza la revisión de admisibilidad.',
+    '2026-10-02 00:00:00+00',
+    '2026-10-02 23:59:00+00',
+    1,
+    NULL,
+    NULL
+  ),
+  (
+    3,
+    'preseleccion',
+    'Preselección',
+    'El Comité Técnico evalúa los proyectos y selecciona los que pasan al bootcamp.',
+    '2026-10-03 00:00:00+00',
+    '2026-10-09 23:59:00+00',
+    7,
+    NULL,
+    NULL
+  ),
+  (
+    4,
+    'bootcamp',
+    'Bootcamp y mentorías',
+    'Los proyectos preseleccionados participan en el bootcamp y cargan los archivos solicitados durante esta etapa.',
+    '2026-10-12 00:00:00+00',
+    '2026-11-06 23:59:00+00',
+    26,
+    1,
+    4
+  ),
+  (
+    5,
+    'seleccion_finalistas',
+    'Selección de finalistas',
+    'Se seleccionan los proyectos que presentarán su propuesta en el Demo Day.',
+    '2026-11-06 00:00:00+00',
+    '2026-11-06 23:59:00+00',
+    1,
+    NULL,
+    NULL
+  ),
+  (
+    6,
+    'demo_day',
+    'Demo Day y premiación',
+    'Instancia presencial y en vivo en la que el jurado selecciona el proyecto ganador.',
+    '2026-11-12 00:00:00+00',
+    '2026-11-12 23:59:00+00',
+    1,
+    NULL,
+    NULL
+  )
+) AS v(
+  numero, tipo, nombre, descripcion,
+  fecha_inicio, fecha_fin, duracion_dias, semana_inicio, semana_fin
+)
+WHERE c.ano = 2026
+ON CONFLICT (convocatoria_id, numero) DO UPDATE
+  SET tipo = EXCLUDED.tipo,
+      nombre = EXCLUDED.nombre,
+      descripcion = EXCLUDED.descripcion,
+      fecha_inicio = EXCLUDED.fecha_inicio,
+      fecha_fin = EXCLUDED.fecha_fin,
+      duracion_dias = EXCLUDED.duracion_dias,
+      semana_inicio = EXCLUDED.semana_inicio,
+      semana_fin = EXCLUDED.semana_fin;
+
 -- Verificacion: los pesos deben sumar exactamente 100.
 DO $$
 DECLARE total INTEGER;

@@ -43,12 +43,12 @@ export default async function AdminProyectosPage() {
     .in("rol", ["jurado", "comite_tecnico"])
     .order("nombre");
 
-  // Cargamos todas las etapas evaluables para que el admin pueda elegir
-  // explícitamente la ronda, incluso si sus fechas ya comenzaron o aún no están definidas.
+  // Cargamos las rondas que requieren asignación de evaluadores:
+  // preselección, evaluación del bootcamp y Demo Day.
   const { data: rawEtapas } = await supabase
     .from("etapas")
     .select("id, nombre, tipo, fecha_inicio, fecha_fin, convocatoria_id")
-    .in("tipo", ["preseleccion", "demo_day"])
+    .in("tipo", ["preseleccion", "bootcamp", "demo_day"])
     .order("fecha_inicio", { ascending: true });
 
   type RawEtapa = {

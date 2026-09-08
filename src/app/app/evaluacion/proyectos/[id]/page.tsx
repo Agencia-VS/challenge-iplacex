@@ -67,12 +67,12 @@ export default async function EvaluarProyectoPage({ params }: PageProps) {
     "idea-temprana";
 
   // La preselección no tiene presentación oral: el pitch no se califica y el
-  // puntaje se normaliza. La semifinal y el Demo Day sí lo evalúan, con la
-  // misma fórmula pero distinto efecto (ver EtapaEvaluacion en rubrica.ts).
+  // puntaje se normaliza. El bootcamp representa la semifinal operativa y el
+  // Demo Day corresponde a la evaluación final.
   const tipoEtapa = (asignacion.etapas as unknown as { tipo: string } | null)?.tipo;
   const etapaEvaluacion: EtapaEvaluacion =
     tipoEtapa === "preseleccion" ? "preseleccion"
-    : tipoEtapa === "semifinal" ? "semifinal"
+    : tipoEtapa === "semifinal" || tipoEtapa === "bootcamp" ? "semifinal"
     : "final";
 
   const { data: prevEval } = await supabase
