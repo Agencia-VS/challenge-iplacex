@@ -378,7 +378,8 @@ export function ProyectosPanel({
         <Badge tone="neutral">{proyectos.length} total</Badge>
         {activeEtapaId !== null && activeEtapaFutura && (
           <Badge tone="accent">Asignando para: {activeEtapaNombre ?? "Próxima evaluación"}</Badge>
-        )}        {activeEtapaId !== null && !activeEtapaFutura && (
+        )}
+        {activeEtapaId !== null && !activeEtapaFutura && (
           <Badge tone="secondary">{activeEtapaNombre ?? "Evaluación activa"}</Badge>
         )}
         {activeEtapaId === null && (
@@ -694,7 +695,8 @@ export function ProyectosPanel({
                                       className={s.danger ? "border-st-danger/40 text-st-danger hover:bg-st-danger/5" : ""}
                                     >
                                       {loadingKeys[`estado-${p.id}`] ? "…" : s.label}
-                                    </Button>                                  ))}
+                                    </Button>
+                                  ))}
                                 </div>
                               )}
                             </div>
