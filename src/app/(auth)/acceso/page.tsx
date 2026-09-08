@@ -33,7 +33,7 @@ export default function AccesoPage() {
       <AccesoForm />
 
       <p className="mt-6 text-center text-[12px] text-brand-ink-muted">
-        Si no recuerdas tu contraseña, contacta al administrador del sistema.
+        Si no recuerdas tu contraseña, usa la opción de recuperación del formulario.
       </p>
     </Card>
   );
