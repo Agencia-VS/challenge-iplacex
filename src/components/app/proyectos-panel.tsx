@@ -329,7 +329,7 @@ export function ProyectosPanel({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 space-y-4">
       {error && (
         <div role="alert" className="rounded-[var(--r-md)] border border-st-danger/30 bg-st-danger/5 px-4 py-3 text-[13px] text-st-danger">
           {error}
@@ -343,7 +343,7 @@ export function ProyectosPanel({
 
 
       {etapasEvaluacion.length > 0 && (
-        <Card variant="ghost" className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <Card variant="ghost" className="min-w-0 flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="brand-eyebrow text-brand-ink-soft">Etapa de evaluación</p>
             <p className="mt-1 text-[12px] text-brand-ink-muted">
@@ -358,7 +358,7 @@ export function ProyectosPanel({
               setError(null);
               setSuccess(null);
             }}
-            className="min-w-[220px] rounded-[var(--r-sm)] border border-brand-line bg-brand-surface-raised px-3 py-2 text-[13px] text-brand-ink outline-none transition-colors focus:border-brand-secondary"
+            className="w-full max-w-full min-w-0 rounded-[var(--r-sm)] border border-brand-line bg-brand-surface-raised px-3 py-2 text-[13px] text-brand-ink outline-none transition-colors focus:border-brand-secondary sm:w-auto sm:min-w-[220px]"
             aria-label="Etapa de evaluación"
           >
             {etapasEvaluacion.map((etapa) => (
@@ -375,7 +375,7 @@ export function ProyectosPanel({
         </div>
       )}
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Badge tone="secondary">{enviados} enviados</Badge>
         <Badge tone="neutral">{proyectos.length} total</Badge>
         {activeEtapaId !== null && activeEtapaFutura && (
@@ -390,8 +390,8 @@ export function ProyectosPanel({
       </div>
 
       {activeEtapaId !== null && (
-        <Card>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <Card className="min-w-0 overflow-hidden">
+          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="brand-eyebrow text-brand-accent">Ranking de la etapa</p>
               <h2 className="brand-display mt-1 text-[22px] text-brand-primary">
@@ -427,8 +427,8 @@ export function ProyectosPanel({
             </div>
           </div>
 
-          <div className="mt-5 overflow-x-auto">
-            <table className="w-full text-left text-[13px]">
+          <div className="mt-5 min-w-0 overflow-x-auto overscroll-x-contain">
+            <table className="min-w-[720px] w-full text-left text-[13px]">
               <thead>
                 <tr className="border-b border-brand-line text-[11px] uppercase tracking-wider text-brand-ink-muted">
                   <th className="px-3 py-3 font-semibold">Puesto</th>
@@ -490,9 +490,9 @@ export function ProyectosPanel({
         </Card>
       )}
 
-      <Card className="overflow-hidden p-0">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-[13px]">
+      <Card className="min-w-0 overflow-hidden p-0">
+        <div className="min-w-0 overflow-x-auto overscroll-x-contain">
+          <table className="min-w-[1100px] w-full text-left text-[13px]">
             <thead>
               <tr className="border-b border-brand-line text-[11px] uppercase tracking-wider text-brand-ink-muted">
                 <th className="px-5 py-3 font-semibold">Puesto</th>
@@ -602,9 +602,9 @@ export function ProyectosPanel({
                     {isExpanded && (
                       <tr key={`${p.id}-expanded`} className="bg-brand-surface-soft">
                         <td colSpan={9} className="px-6 py-5">
-                          <div className="grid gap-6 md:grid-cols-2">
+                          <div className="grid min-w-0 gap-6 md:grid-cols-2">
                             {/* Asignar evaluadores */}
-                            <div>
+                            <div className="min-w-0">
                               <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
                                 <div>
                                   <p className="brand-eyebrow text-brand-ink-soft">Asignar evaluadores</p>
@@ -675,7 +675,7 @@ export function ProyectosPanel({
                             </div>
 
                             {/* Cambiar estado */}
-                            <div>
+                            <div className="min-w-0">
                               <p className="brand-eyebrow mb-3 text-brand-ink-soft">
                                 Avanzar en el funnel
                               </p>

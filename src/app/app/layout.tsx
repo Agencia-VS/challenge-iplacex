@@ -112,7 +112,7 @@ export default async function AppLayout({
       <AppSidebar rol={rol} nombre={nombre} email={email} />
 
       {/* Contenido principal */}
-      <div className="flex flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         {/* Topbar desktop */}
         <header className="sticky top-0 z-30 hidden h-14 items-center justify-between gap-4 border-b border-brand-line bg-brand-surface/85 px-8 backdrop-blur-xl md:flex">
           <div className="flex items-center gap-1.5 text-[12px] text-brand-ink-muted">
@@ -126,7 +126,7 @@ export default async function AppLayout({
           </p>
         </header>
 
-        <main className="flex-1 px-5 py-8 md:px-9">{children}</main>
+        <main className="min-w-0 flex-1 px-5 py-8 md:px-9">{children}</main>
       </div>
     </div>
   );
