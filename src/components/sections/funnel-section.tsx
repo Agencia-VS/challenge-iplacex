@@ -45,7 +45,11 @@ async function obtenerEtapas(): Promise<Etapa[]> {
   if (!etapasRaw || etapasRaw.length === 0) return etapasFallback;
 
   const now = new Date();
-  return (etapasRaw as EtapaDB[]).map((e) => mapEtapaDB(e, now));
+  const etapasVisibles = (etapasRaw as EtapaDB[]).filter((e) => e.tipo !== "semifinal");
+
+  return etapasVisibles.map((e, i) =>
+    mapEtapaDB({ ...e, numero: i + 1 }, now),
+  );
 }
 
 export async function FunnelSection() {
