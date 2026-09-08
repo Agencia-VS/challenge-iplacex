@@ -32,7 +32,8 @@ export default async function AdminProyectosPage() {
       id, codigo_ciego, nombre_proyecto, estado_postulacion, created_at, enviada_at,
       categorias ( nombre ),
       postulante:postulante_id ( nombre, email ),
-      asignaciones ( evaluador_id, etapa_id, estado )
+      asignaciones ( evaluador_id, etapa_id, estado ),
+      evaluaciones ( etapa_id, puntaje_ponderado, estado )
     `)
     .order("created_at", { ascending: false });
 
@@ -87,6 +88,7 @@ export default async function AdminProyectosPage() {
   type ConvocatoriaConfig = {
     estadosBadge?: Record<string, EstadoBadgeConfig> | null;
     transicionesEstado?: Record<string, TransicionEstado[]> | null;
+    nEvaluadoresPorProyecto?: number;
   };
   let convConfig: ConvocatoriaConfig | null = null;
   if (etapa) {
@@ -108,6 +110,7 @@ export default async function AdminProyectosPage() {
     categorias: { nombre: string } | null;
     postulante: { nombre: string; email: string } | null;
     asignaciones: { evaluador_id: string; etapa_id: number; estado: string | null }[] | null;
+    evaluaciones: { etapa_id: number | null; puntaje_ponderado: number | null; estado: string }[] | null;
   };
 
   const proyectos: ProyectoPanelRow[] = ((rawProyectos ?? []) as unknown as RawProy[]).map(p => ({
@@ -120,6 +123,7 @@ export default async function AdminProyectosPage() {
     categoria: p.categorias?.nombre ?? null,
     postulante: p.postulante?.nombre ?? p.postulante?.email ?? null,
     asignaciones: p.asignaciones ?? [],
+    evaluaciones: p.evaluaciones ?? [],
   }));
 
   const evaluadores: EvaluadorSimple[] = ((rawEvaluadores ?? []) as {
@@ -150,6 +154,7 @@ export default async function AdminProyectosPage() {
         etapaEvalId={etapa?.id ?? null}
         etapaFutura={Boolean(etapa?.fecha_inicio && new Date(etapa.fecha_inicio).getTime() > ahora)}
         etapaNombre={(etapa as { nombre?: string } | null)?.nombre ?? null}
+        evaluacionesEsperadas={convConfig?.nEvaluadoresPorProyecto ?? 2}
         estadoBadge={resolveEstadoBadge(convConfig?.estadosBadge)}
         transiciones={resolveTransiciones(convConfig?.transicionesEstado)}
       />
