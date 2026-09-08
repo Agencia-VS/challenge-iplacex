@@ -251,10 +251,10 @@ export function ProyectosPanel({
     return a.codigo.localeCompare(b.codigo);
   });
 
-  const puestos = new Map(
+  const puestos = new Map<string, number>(
     rankingOrdenado
       .filter((row) => row.elegible)
-      .map((row, index) => [row.id, index + 1]),
+      .map((row, index) => [row.id, index + 1] as const),
   );
 
   const rankingRows: RankingRow[] = rankingOrdenado.map((row) => {
@@ -274,7 +274,9 @@ export function ProyectosPanel({
     };
   });
 
-  const rankingPorProyecto = new Map(rankingRows.map((row) => [row.id, row]));
+  const rankingPorProyecto = new Map<string, RankingRow>(
+    rankingRows.map((row) => [row.id, row] as const),
+  );
   const proyectosOrdenados = [...proyectos].sort((a, b) => {
     const aRow = rankingPorProyecto.get(a.id);
     const bRow = rankingPorProyecto.get(b.id);
