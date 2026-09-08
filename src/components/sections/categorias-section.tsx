@@ -1,7 +1,7 @@
 import { Section } from "@/components/ui/section";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CATEGORIAS, CRITERIOS, type Categoria } from "@/lib/rubrica";
+import { CATEGORIAS, type Categoria } from "@/lib/rubrica";
 
 /** Un acento por categoría, para distinguirlas de un vistazo. */
 const ACENTO = ["text-brand-accent", "text-brand-secondary", "text-brand-primary"] as const;
@@ -48,18 +48,8 @@ function CategoriaCard({ c, acento }: { c: Categoria; acento: string }) {
         </Badge>
 
         <h3 className={`brand-display mt-5 text-[24px] ${acento}`}>{c.nombre}</h3>
-        <p className="mt-3 flex-1 text-[14px] leading-relaxed text-brand-ink-soft">{c.alcance}</p>
+        <p className="mt-6 flex-1 text-[14px] leading-relaxed text-brand-ink-soft">{c.alcance}</p>
 
-        <div className="mt-6 border-t border-dashed border-brand-line pt-5">
-          <p className="brand-eyebrow">Se evalúa con</p>
-          <ul className="mt-2 space-y-1">
-            {CRITERIOS.map((cr) => (
-              <li key={cr.slug} className="text-[12px] text-brand-ink-soft">
-                {cr.nombre}
-              </li>
-            ))}
-          </ul>
-        </div>
       </div>
     </Card>
   );
