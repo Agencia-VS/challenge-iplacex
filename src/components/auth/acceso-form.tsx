@@ -10,7 +10,7 @@ import { BRAND } from "@/lib/brand";
 import { AvisoSinConfigurar } from "@/components/auth/aviso-sin-configurar";
 import { SUPABASE_ANON_KEY, SUPABASE_URL, supabaseConfigurado } from "@/lib/supabase/config";
 
-export function AccesoForm() {
+export function AccesoForm({ passwordReset = false }: { passwordReset?: boolean }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -55,6 +55,15 @@ export function AccesoForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {passwordReset && (
+        <p
+          role="status"
+          className="rounded-[var(--r-sm)] border border-brand-line bg-brand-surface-soft px-3 py-2 text-[12px] leading-relaxed text-brand-ink-soft"
+        >
+          Tu contraseña se actualizó correctamente. Ya puedes ingresar con la nueva clave.
+        </p>
+      )}
+
       <Field
         label="Email corporativo"
         type="email"
