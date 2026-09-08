@@ -694,4 +694,21 @@ export function ProyectosPanel({
                                       className={s.danger ? "border-st-danger/40 text-st-danger hover:bg-st-danger/5" : ""}
                                     >
                                       {loadingKeys[`estado-${p.id}`] ? "…" : s.label}
-                                    </Button>
+                                    </Button>                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  );
+}
