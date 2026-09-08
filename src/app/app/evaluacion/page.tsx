@@ -71,7 +71,7 @@ export default async function EvaluadorDashboard() {
         .select("asignacion_id, proyecto_id, estado")
         .in("proyecto_id", proyectoIds)
         .eq("evaluador_id", user.id)
-    : { data: [] as { proyecto_id: string; estado: string }[] };
+    : { data: [] as { asignacion_id: string; proyecto_id: string; estado: string }[] };
 
   const evalMap = new Map(
     (evalsRaw ?? []).map(e => [e.asignacion_id, e.estado]),
@@ -79,7 +79,7 @@ export default async function EvaluadorDashboard() {
 
   const totalAsignados = asignaciones.length;
   const completadas = asignaciones.filter(a =>
-    evalMap.get(a.proyectos?.id ?? "") === "finalizada",
+    evalMap.get(a.id) === "finalizada",
   ).length;
   const pendientes = totalAsignados - completadas;
 
