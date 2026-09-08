@@ -32,7 +32,7 @@ export default async function AdminProyectosPage() {
       id, codigo_ciego, nombre_proyecto, estado_postulacion, created_at, enviada_at,
       categorias ( nombre ),
       postulante:postulante_id ( nombre, email ),
-      asignaciones ( evaluador_id, etapa_id )
+      asignaciones ( evaluador_id, etapa_id, estado )
     `)
     .order("created_at", { ascending: false });
 
@@ -78,7 +78,7 @@ export default async function AdminProyectosPage() {
     enviada_at: string | null;
     categorias: { nombre: string } | null;
     postulante: { nombre: string; email: string } | null;
-    asignaciones: { evaluador_id: string; etapa_id: number }[] | null;
+    asignaciones: { evaluador_id: string; etapa_id: number; estado: string | null }[] | null;
   };
 
   const proyectos: ProyectoPanelRow[] = ((rawProyectos ?? []) as unknown as RawProy[]).map(p => ({
@@ -98,6 +98,7 @@ export default async function AdminProyectosPage() {
   }[]).map(e => ({
     id: e.id,
     nombre: e.nombre ?? e.email,
+    email: e.email,
     rol: e.rol,
   }));
 
