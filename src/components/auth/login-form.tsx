@@ -10,7 +10,7 @@ import { BRAND } from "@/lib/brand";
 import { AvisoSinConfigurar } from "@/components/auth/aviso-sin-configurar";
 import { SUPABASE_ANON_KEY, SUPABASE_URL, supabaseConfigurado } from "@/lib/supabase/config";
 
-export function LoginForm() {
+export function LoginForm({ passwordReset = false }: { passwordReset?: boolean }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -40,7 +40,7 @@ export function LoginForm() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
     if (error) {
       setError(error.message === "Invalid login credentials"
         ? "Email o contraseña incorrectos"
@@ -54,6 +54,15 @@ export function LoginForm() {
 
   return (
     <>
+      {passwordReset && (
+        <p
+          role="status"
+          className="mt-6 rounded-[var(--r-sm)] border border-brand-line bg-brand-surface-soft px-3 py-2 text-[12px] leading-relaxed text-brand-ink-soft"
+        >
+          Tu contraseña se actualizó correctamente. Ya puedes ingresar con la nueva clave.
+        </p>
+      )}
+
       <Button
         variant="outline"
         size="lg"
@@ -92,6 +101,15 @@ export function LoginForm() {
           required
           autoComplete="current-password"
         />
+
+        <div className="-mt-1 text-right">
+          <Link
+            href="/recuperar-clave?next=%2Flogin"
+            className="text-[12px] font-medium text-brand-accent hover:underline"
+          >
+            ¿Olvidaste tu contraseña?
+          </Link>
+        </div>
 
         {error && (
           <p className="rounded-[var(--r-sm)] border border-st-danger/30 bg-st-danger/5 px-3 py-2 text-[12px] text-st-danger">

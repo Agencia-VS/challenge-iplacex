@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createBrowserClient } from "@supabase/ssr";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/auth/field";
@@ -9,7 +10,7 @@ import { BRAND } from "@/lib/brand";
 import { AvisoSinConfigurar } from "@/components/auth/aviso-sin-configurar";
 import { SUPABASE_ANON_KEY, SUPABASE_URL, supabaseConfigurado } from "@/lib/supabase/config";
 
-export function AccesoForm() {
+export function AccesoForm({ passwordReset = false }: { passwordReset?: boolean }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -25,7 +26,7 @@ export function AccesoForm() {
     setError(null);
     setLoading(true);
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
     if (error) {
       setError(error.message === "Invalid login credentials"
         ? "Credenciales inválidas"
@@ -54,6 +55,15 @@ export function AccesoForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {passwordReset && (
+        <p
+          role="status"
+          className="rounded-[var(--r-sm)] border border-brand-line bg-brand-surface-soft px-3 py-2 text-[12px] leading-relaxed text-brand-ink-soft"
+        >
+          Tu contraseña se actualizó correctamente. Ya puedes ingresar con la nueva clave.
+        </p>
+      )}
+
       <Field
         label="Email corporativo"
         type="email"
@@ -74,6 +84,15 @@ export function AccesoForm() {
         required
         autoComplete="current-password"
       />
+
+      <div className="-mt-1 text-right">
+        <Link
+          href="/recuperar-clave?next=%2Facceso"
+          className="text-[12px] font-medium text-brand-accent hover:underline"
+        >
+          ¿Olvidaste tu contraseña?
+        </Link>
+      </div>
 
       {error && (
         <p className="rounded-[var(--r-sm)] border border-st-danger/30 bg-st-danger/5 px-3 py-2 text-[12px] text-st-danger">
