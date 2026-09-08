@@ -60,9 +60,32 @@ export async function crearEvaluador(input: CrearEvaluadorInput): Promise<Action
     return { ok: false, error: "Rol inválido" };
   }
 
-  // 3. Crear usuario en Auth con service role (sin email de confirmación)
+  // 3. Crear usuario en Auth con service role (sin email de confirmación).
+  //    Si ya existe un perfil público sin cuenta Auth, reutilizamos su UUID para
+  //    mantener intactas sus asignaciones y evaluaciones.
   const adminClient = createAdminClient();
+  const { data: perfilExistente, error: perfilExistenteError } = await adminClient
+    .from("usuarios")
+    .select("id")
+    .eq("email", email)
+    .maybeSingle();
+
+  if (perfilExistenteError) {
+    return { ok: false, error: "No se pudo comprobar el perfil existente" };
+  }
+
+  if (perfilExistente) {
+    const { data: authExistente } = await adminClient.auth.admin.getUserById(
+      perfilExistente.id,
+    );
+
+    if (authExistente.user) {
+      return { ok: false, error: "Ya existe un usuario con ese email" };
+    }
+  }
+
   const { data: newUser, error: authError } = await adminClient.auth.admin.createUser({
+    ...(perfilExistente ? { id: perfilExistente.id } : {}),
     email,
     password,
     email_confirm: true, // usuario interno — no necesita confirmar
