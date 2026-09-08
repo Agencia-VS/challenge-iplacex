@@ -46,11 +46,13 @@ export const TRANSICIONES_DEFAULT: Record<string, TransicionEstado[]> = {
     { label: "Declarar inadmisible", estado: "inadmisible", danger: true },
     { label: "Preseleccionar ✓", estado: "preseleccionado" },
     { label: "No preseleccionar ✗", estado: "no_preseleccionado", danger: true },
+    { label: "Descalificar por plagio", estado: "descalificado", danger: true },
   ],
   preseleccionado: [
     { label: "Marcar finalista ✓", estado: "finalista" },
     { label: "No pasa a finalista ✗", estado: "no_finalista", danger: true },
     { label: "Descalificar por asistencia", estado: "descalificado", danger: true },
+    { label: "Descalificar por plagio", estado: "descalificado", danger: true },
   ],
   finalista: [
     { label: "Marcar premiado 🏆", estado: "premiado" },
