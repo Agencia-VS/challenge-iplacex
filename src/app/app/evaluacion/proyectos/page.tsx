@@ -96,7 +96,7 @@ export default async function ProyectosEvaluadorPage() {
         <Card className="overflow-hidden p-0">
           <ul className="divide-y divide-brand-line">
             {asignaciones.map(a => {
-              const ev = evalMap.get(a.proyecto?.id ?? "");
+              const ev = evalMap.get(a.id);
               const tone =
                 ev?.estado === "finalizada" ? ("success" as const)
                 : ev?.estado === "en_progreso" ? ("secondary" as const)
