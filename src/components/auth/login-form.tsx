@@ -10,7 +10,7 @@ import { BRAND } from "@/lib/brand";
 import { AvisoSinConfigurar } from "@/components/auth/aviso-sin-configurar";
 import { SUPABASE_ANON_KEY, SUPABASE_URL, supabaseConfigurado } from "@/lib/supabase/config";
 
-export function LoginForm() {
+export function LoginForm({ passwordReset = false }: { passwordReset?: boolean }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -54,6 +54,15 @@ export function LoginForm() {
 
   return (
     <>
+      {passwordReset && (
+        <p
+          role="status"
+          className="mt-6 rounded-[var(--r-sm)] border border-brand-line bg-brand-surface-soft px-3 py-2 text-[12px] leading-relaxed text-brand-ink-soft"
+        >
+          Tu contraseña se actualizó correctamente. Ya puedes ingresar con la nueva clave.
+        </p>
+      )}
+
       <Button
         variant="outline"
         size="lg"
