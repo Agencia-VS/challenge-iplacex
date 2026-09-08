@@ -35,6 +35,12 @@ export interface AsignacionSimple {
   etapa_id: number;
 }
 
+export interface EvaluacionSimple {
+  etapa_id: number | null;
+  puntaje_ponderado: number | null;
+  estado: string;
+}
+
 export interface ProyectoPanelRow {
   id: string;
   codigo_ciego: string;
@@ -45,6 +51,42 @@ export interface ProyectoPanelRow {
   categoria: string | null;
   postulante: string | null;
   asignaciones: AsignacionSimple[];
+  evaluaciones: EvaluacionSimple[];
+}
+
+type RankingRow = {
+  id: string;
+  codigo: string;
+  nombre: string;
+  categoria: string;
+  estado: string;
+  n: number;
+  esperado: number;
+  promedio: number | null;
+  sigma: number;
+  completa: boolean;
+  elegible: boolean;
+  puesto: number | null;
+  pasa: boolean;
+  exclusion: string;
+};
+
+function promedio(values: number[]) {
+  if (!values.length) return null;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function desviacion(values: number[]) {
+  if (values.length < 2) return 0;
+  const media = promedio(values) ?? 0;
+  return Math.sqrt(
+    values.reduce((sum, value) => sum + (value - media) ** 2, 0) / values.length,
+  );
+}
+
+function csvCell(value: string | number | null) {
+  const text = value === null ? "" : String(value);
+  return """ + text.replaceAll(""", """") + """;
 }
 
 export function ProyectosPanel({
@@ -56,6 +98,7 @@ export function ProyectosPanel({
   etapaNombre = null,
   estadoBadge = ESTADO_BADGE_DEFAULT,
   transiciones = TRANSICIONES_DEFAULT,
+  evaluacionesEsperadas = 2,
 }: {
   proyectos: ProyectoPanelRow[];
   evaluadores: EvaluadorSimple[];
@@ -63,6 +106,7 @@ export function ProyectosPanel({
   etapaEvalId: number | null;
   etapaFutura?: boolean;
   etapaNombre?: string | null;
+  evaluacionesEsperadas?: number;
   estadoBadge?: Record<string, EstadoBadgeConfig>;
   transiciones?: Record<string, TransicionEstado[]>;
 }) {
@@ -116,6 +160,14 @@ export function ProyectosPanel({
   }
 
   async function handleEstado(proyectoId: string, estado: string) {
+    if (
+      estado === "descalificado" &&
+      typeof window !== "undefined" &&
+      !window.confirm("¿Confirmas la descalificación por plagio? El proyecto saldrá del ranking elegible.")
+    ) {
+      return;
+    }
+
     setLoadingKeys((prev) => ({ ...prev, [`estado-${proyectoId}`]: true }));
     setError(null);
     setSuccess(null);
@@ -144,6 +196,135 @@ export function ProyectosPanel({
   }
 
   const enviados = proyectos.filter(p => p.estado_postulacion !== "borrador").length;
+  const esperado = Math.max(1, evaluacionesEsperadas || 2);
+  const esPreseleccion = etapaSeleccionada?.tipo === "preseleccion";
+  const estadosExcluidos = new Set([
+    "borrador",
+    "inadmisible",
+    "no_preseleccionado",
+    "descalificado",
+  ]);
+
+  const rankingBase = proyectos.map((p) => {
+    const scores = (p.evaluaciones ?? [])
+      .filter((evaluacion) =>
+        activeEtapaId !== null &&
+        evaluacion.etapa_id === activeEtapaId &&
+        evaluacion.estado === "finalizada" &&
+        typeof evaluacion.puntaje_ponderado === "number",
+      )
+      .map((evaluacion) => evaluacion.puntaje_ponderado as number);
+    const media = promedio(scores);
+    const completa = scores.length >= esperado;
+    const elegible = scores.length > 0 && completa && !estadosExcluidos.has(p.estado_postulacion);
+
+    return {
+      id: p.id,
+      codigo: p.codigo_ciego,
+      nombre: p.nombre_proyecto ?? "Sin nombre",
+      categoria: p.categoria ?? "Sin categoría",
+      estado: p.estado_postulacion,
+      n: scores.length,
+      esperado,
+      promedio: media,
+      sigma: desviacion(scores),
+      completa,
+      elegible,
+      puesto: null,
+      pasa: false,
+      exclusion: estadosExcluidos.has(p.estado_postulacion)
+        ? "Excluido"
+        : scores.length === 0
+        ? "Sin evaluación"
+        : !completa
+        ? "Evaluación incompleta"
+        : "Fuera del cupo",
+    } satisfies RankingRow;
+  });
+
+  const rankingOrdenado = [...rankingBase].sort((a, b) => {
+    if (a.elegible !== b.elegible) return a.elegible ? -1 : 1;
+    if ((a.promedio ?? -1) !== (b.promedio ?? -1)) {
+      return (b.promedio ?? -1) - (a.promedio ?? -1);
+    }
+    if (a.n !== b.n) return b.n - a.n;
+    return a.codigo.localeCompare(b.codigo);
+  });
+
+  const puestos = new Map(
+    rankingOrdenado
+      .filter((row) => row.elegible)
+      .map((row, index) => [row.id, index + 1]),
+  );
+
+  const rankingRows: RankingRow[] = rankingOrdenado.map((row) => {
+    const puesto = puestos.get(row.id) ?? null;
+    const pasa = Boolean(esPreseleccion && puesto !== null && puesto <= 10);
+    return {
+      ...row,
+      puesto,
+      pasa,
+      exclusion: pasa
+        ? "Pasa a bootcamp"
+        : row.elegible && esPreseleccion
+        ? "Fuera del cupo"
+        : row.elegible
+        ? "Elegible"
+        : row.exclusion,
+    };
+  });
+
+  const rankingPorProyecto = new Map(rankingRows.map((row) => [row.id, row]));
+  const proyectosOrdenados = [...proyectos].sort((a, b) => {
+    const aRow = rankingPorProyecto.get(a.id);
+    const bRow = rankingPorProyecto.get(b.id);
+    if ((aRow?.puesto ?? Infinity) !== (bRow?.puesto ?? Infinity)) {
+      return (aRow?.puesto ?? Infinity) - (bRow?.puesto ?? Infinity);
+    }
+    return a.codigo_ciego.localeCompare(b.codigo_ciego);
+  });
+
+  function exportarRanking() {
+    if (activeEtapaId === null) return;
+    const encabezados = [
+      "Puesto",
+      "Código ciego",
+      "Proyecto",
+      "Categoría",
+      "Estado",
+      "Puntaje ponderado",
+      "Evaluaciones completas",
+      "Evaluaciones esperadas",
+      "Dispersión",
+      esPreseleccion ? "Resultado preselección" : "Resultado de etapa",
+    ];
+    const filas = rankingRows.map((row) => [
+      row.puesto ?? "",
+      row.codigo,
+      row.nombre,
+      row.categoria,
+      row.estado,
+      row.promedio === null ? "" : row.promedio.toFixed(1).replace(".", ","),
+      row.n,
+      row.esperado,
+      row.promedio === null ? "" : row.sigma.toFixed(2).replace(".", ","),
+      row.exclusion,
+    ]);
+    const csv = "\uFEFF" + [encabezados, ...filas]
+      .map((fila) => fila.map((valor) => csvCell(valor)).join(";"))
+      .join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const enlace = document.createElement("a");
+    const nombreEtapa = (activeEtapaNombre ?? "etapa")
+      .toLowerCase()
+      .replaceAll(/[^a-z0-9áéíóúñ]+/gi, "-")
+      .replace(/(^-|-$)/g, "");
+    enlace.href = url;
+    enlace.download = "ranking-" + (nombreEtapa || "etapa") + "-" + new Date().toISOString().slice(0, 10) + ".csv";
+    enlace.click();
+    URL.revokeObjectURL(url);
+  }
 
   return (
     <div className="space-y-4">
@@ -197,8 +378,7 @@ export function ProyectosPanel({
         <Badge tone="neutral">{proyectos.length} total</Badge>
         {activeEtapaId !== null && activeEtapaFutura && (
           <Badge tone="accent">Asignando para: {activeEtapaNombre ?? "Próxima evaluación"}</Badge>
-        )}
-        {activeEtapaId !== null && !activeEtapaFutura && (
+        )}        {activeEtapaId !== null && !activeEtapaFutura && (
           <Badge tone="secondary">{activeEtapaNombre ?? "Evaluación activa"}</Badge>
         )}
         {activeEtapaId === null && (
@@ -206,23 +386,127 @@ export function ProyectosPanel({
         )}
       </div>
 
+      {activeEtapaId !== null && (
+        <Card>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="brand-eyebrow text-brand-accent">Ranking de la etapa</p>
+              <h2 className="brand-display mt-1 text-[22px] text-brand-primary">
+                {esPreseleccion ? "Selección para el bootcamp" : activeEtapaNombre ?? "Evaluación"}
+              </h2>
+              <p className="mt-1 max-w-2xl text-[12px] text-brand-ink-muted">
+                Ordenado por el promedio de las evaluaciones finalizadas. Los proyectos descalificados o con evaluación incompleta no ocupan un puesto elegible.
+              </p>
+            </div>
+            <Button type="button" variant="secondary" size="sm" onClick={exportarRanking}>
+              Exportar a Excel
+            </Button>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-[var(--r-sm)] border border-brand-line bg-brand-surface-soft px-3 py-2">
+              <p className="text-[11px] uppercase tracking-wide text-brand-ink-muted">Cupo</p>
+              <p className="mt-1 font-[family-name:var(--font-mono)] text-lg font-bold text-brand-primary">
+                {esPreseleccion ? "10 proyectos" : "Selección manual"}
+              </p>
+            </div>
+            <div className="rounded-[var(--r-sm)] border border-brand-line bg-brand-surface-soft px-3 py-2">
+              <p className="text-[11px] uppercase tracking-wide text-brand-ink-muted">Evaluaciones completas</p>
+              <p className="mt-1 font-[family-name:var(--font-mono)] text-lg font-bold text-brand-primary">
+                {rankingRows.filter((row) => row.elegible).length}
+              </p>
+            </div>
+            <div className="rounded-[var(--r-sm)] border border-brand-line bg-brand-surface-soft px-3 py-2">
+              <p className="text-[11px] uppercase tracking-wide text-brand-ink-muted">Pasan por puntaje</p>
+              <p className="mt-1 font-[family-name:var(--font-mono)] text-lg font-bold text-brand-secondary">
+                {esPreseleccion ? Math.min(10, rankingRows.filter((row) => row.elegible).length) : "—"}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5 overflow-x-auto">
+            <table className="w-full text-left text-[13px]">
+              <thead>
+                <tr className="border-b border-brand-line text-[11px] uppercase tracking-wider text-brand-ink-muted">
+                  <th className="px-3 py-3 font-semibold">Puesto</th>
+                  <th className="px-3 py-3 font-semibold">Código</th>
+                  <th className="px-3 py-3 font-semibold">Proyecto</th>
+                  <th className="px-3 py-3 font-semibold">Puntaje</th>
+                  <th className="px-3 py-3 font-semibold">Evaluaciones</th>
+                  <th className="px-3 py-3 font-semibold">Resultado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rankingRows.map((row) => (
+                  <tr
+                    key={row.id}
+                    className={cn(
+                      "border-b border-brand-line/60",
+                      row.pasa && "bg-brand-secondary/5",
+                    )}
+                  >
+                    <td className="px-3 py-3 font-[family-name:var(--font-mono)] font-bold text-brand-primary">
+                      {row.puesto ?? "—"}
+                    </td>
+                    <td className="px-3 py-3 font-[family-name:var(--font-mono)] text-brand-secondary">
+                      {row.codigo}
+                    </td>
+                    <td className="px-3 py-3 font-medium text-brand-ink">
+                      {row.nombre}
+                    </td>
+                    <td className="px-3 py-3">
+                      <span className="font-[family-name:var(--font-mono)] text-[15px] font-bold text-brand-ink">
+                        {row.promedio === null ? "—" : row.promedio.toFixed(1) + " / 100"}
+                      </span>
+                      {row.promedio !== null && row.n > 1 && (
+                        <span className="ml-2 text-[11px] text-brand-ink-muted">
+                          σ {row.sigma.toFixed(1)}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-3 text-brand-ink-soft">
+                      {row.n}/{row.esperado}
+                    </td>
+                    <td className="px-3 py-3">
+                      <Badge tone={row.pasa ? "success" : row.elegible ? "secondary" : "neutral"}>
+                        {row.exclusion}
+                      </Badge>
+                    </td>
+                  </tr>
+                ))}
+                {!rankingRows.length && (
+                  <tr>
+                    <td colSpan={6} className="px-3 py-8 text-center text-[13px] text-brand-ink-muted">
+                      Aún no hay proyectos para ordenar.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
       <Card className="overflow-hidden p-0">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-[13px]">
             <thead>
               <tr className="border-b border-brand-line text-[11px] uppercase tracking-wider text-brand-ink-muted">
+                <th className="px-5 py-3 font-semibold">Puesto</th>
                 <th className="px-5 py-3 font-semibold">Código</th>
                 <th className="px-5 py-3 font-semibold">Proyecto</th>
                 <th className="px-5 py-3 font-semibold">Postulante</th>
                 <th className="px-5 py-3 font-semibold">Categoría</th>
+                <th className="px-5 py-3 font-semibold">Puntaje</th>
                 <th className="px-5 py-3 font-semibold">Estado</th>
                 <th className="px-5 py-3 font-semibold">Evaluadores</th>
                 <th className="px-5 py-3 font-semibold">Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {proyectos.map((p) => {
+              {proyectosOrdenados.map((p) => {
                 const conf = estadoBadge[p.estado_postulacion] ?? { label: p.estado_postulacion, tone: "neutral" as const };
+                const ranking = rankingPorProyecto.get(p.id);
                 const asignacionesEtapa = activeEtapaId === null
                   ? []
                   : p.asignaciones.filter((a) => a.etapa_id === activeEtapaId);
@@ -250,6 +534,9 @@ export function ProyectosPanel({
                         isExpanded ? "bg-brand-surface-soft" : "hover:bg-brand-surface-soft/50",
                       )}
                     >
+                      <td className="px-5 py-3 font-[family-name:var(--font-mono)] text-[13px] font-bold text-brand-primary">
+                        {ranking?.puesto ?? "—"}
+                      </td>
                       <td className="px-5 py-3 font-[family-name:var(--font-mono)] text-[12px] font-bold text-brand-secondary">
                         {p.codigo_ciego}
                       </td>
@@ -263,6 +550,16 @@ export function ProyectosPanel({
                       </td>
                       <td className="px-5 py-3 text-brand-ink-soft">
                         {p.categoria ?? "—"}
+                      </td>
+                      <td className="px-5 py-3">
+                        {ranking?.promedio === null || ranking?.promedio === undefined
+                          ? <span className="text-brand-ink-muted">—</span>
+                          : (
+                            <span className="font-[family-name:var(--font-mono)] font-bold text-brand-ink">
+                              {ranking.promedio.toFixed(1)}
+                            </span>
+                          )}
+                        {ranking && <span className="ml-1 text-[10px] text-brand-ink-muted">/100</span>}
                       </td>
                       <td className="px-5 py-3">
                         <Badge tone={conf.tone}>{conf.label}</Badge>
@@ -301,7 +598,7 @@ export function ProyectosPanel({
                     {/* Panel expandido */}
                     {isExpanded && (
                       <tr key={`${p.id}-expanded`} className="bg-brand-surface-soft">
-                        <td colSpan={7} className="px-6 py-5">
+                        <td colSpan={9} className="px-6 py-5">
                           <div className="grid gap-6 md:grid-cols-2">
                             {/* Asignar evaluadores */}
                             <div>
@@ -398,21 +695,3 @@ export function ProyectosPanel({
                                     >
                                       {loadingKeys[`estado-${p.id}`] ? "…" : s.label}
                                     </Button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </Fragment>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-    </div>
-  );
-}
