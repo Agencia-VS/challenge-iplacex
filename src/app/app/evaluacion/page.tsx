@@ -68,13 +68,13 @@ export default async function EvaluadorDashboard() {
   const { data: evalsRaw } = proyectoIds.length
     ? await supabase
         .from("evaluaciones")
-        .select("proyecto_id, estado")
+        .select("asignacion_id, proyecto_id, estado")
         .in("proyecto_id", proyectoIds)
         .eq("evaluador_id", user.id)
     : { data: [] as { proyecto_id: string; estado: string }[] };
 
   const evalMap = new Map(
-    (evalsRaw ?? []).map(e => [e.proyecto_id, e.estado]),
+    (evalsRaw ?? []).map(e => [e.asignacion_id, e.estado]),
   );
 
   const totalAsignados = asignaciones.length;
@@ -131,7 +131,7 @@ export default async function EvaluadorDashboard() {
           {asignaciones.map((a) => {
             const p = a.proyectos;
             if (!p) return null;
-            const evEstado = evalMap.get(p.id) ?? "pendiente";
+            const evEstado = evalMap.get(a.id) ?? "pendiente";
             return (
               <li key={a.id} className="flex items-center justify-between gap-4 px-6 py-4">
                 <div className="flex items-center gap-4 min-w-0">
@@ -164,7 +164,7 @@ export default async function EvaluadorDashboard() {
                         : "Pendiente"}
                   </Badge>
                   <Button
-                    href={`/app/evaluacion/proyectos/${p.id}`}
+                    href={`/app/evaluacion/proyectos/${p.id}?asignacion=${encodeURIComponent(a.id)}`}
                     variant={evEstado === "finalizada" ? "ghost" : "secondary"}
                     size="sm"
                   >
