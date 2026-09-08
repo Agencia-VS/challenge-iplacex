@@ -40,7 +40,7 @@ export function LoginForm() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
     if (error) {
       setError(error.message === "Invalid login credentials"
         ? "Email o contraseña incorrectos"
@@ -92,6 +92,15 @@ export function LoginForm() {
           required
           autoComplete="current-password"
         />
+
+        <div className="-mt-1 text-right">
+          <Link
+            href="/recuperar-clave?next=%2Flogin"
+            className="text-[12px] font-medium text-brand-accent hover:underline"
+          >
+            ¿Olvidaste tu contraseña?
+          </Link>
+        </div>
 
         {error && (
           <p className="rounded-[var(--r-sm)] border border-st-danger/30 bg-st-danger/5 px-3 py-2 text-[12px] text-st-danger">
