@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { roleHomePath } from "@/lib/roles";
 import { ProyectosPanel } from "@/components/app/proyectos-panel";
-import type { ProyectoPanelRow, EvaluadorSimple } from "@/components/app/proyectos-panel";
+import type { ProyectoPanelRow, EvaluadorSimple, EtapaEvaluacionSimple } from "@/components/app/proyectos-panel";
 import { resolveEstadoBadge, resolveTransiciones, type EstadoBadgeConfig, type TransicionEstado } from "@/lib/estados";
 
 export const metadata: Metadata = { title: "Proyectos · Admin" };
@@ -43,16 +43,45 @@ export default async function AdminProyectosPage() {
     .in("rol", ["jurado", "comite_tecnico"])
     .order("nombre");
 
-  // Etapa de evaluación: activa hoy, o la próxima si todavía no comenzó
-  // Así el admin puede asignar evaluadores antes de que arranque la ronda
-  const { data: etapa } = await supabase
+  // Cargamos todas las etapas evaluables para que el admin pueda elegir
+  // explícitamente la ronda, incluso si sus fechas ya comenzaron o aún no están definidas.
+  const { data: rawEtapas } = await supabase
     .from("etapas")
-    .select("id, nombre, fecha_inicio, convocatoria_id")
+    .select("id, nombre, tipo, fecha_inicio, fecha_fin, convocatoria_id")
     .in("tipo", ["preseleccion", "demo_day"])
-    .gte("fecha_fin", new Date().toISOString())   // no ha terminado aún
-    .order("fecha_inicio", { ascending: true })   // la más próxima primero
-    .limit(1)
-    .maybeSingle();
+    .order("fecha_inicio", { ascending: true });
+
+  type RawEtapa = {
+    id: number;
+    nombre: string | null;
+    tipo: string;
+    fecha_inicio: string | null;
+    fecha_fin: string | null;
+    convocatoria_id: number;
+  };
+
+  const etapasEvaluacion: EtapaEvaluacionSimple[] = ((rawEtapas ?? []) as RawEtapa[]).map((item) => ({
+    id: item.id,
+    nombre: item.nombre ?? (item.tipo === "demo_day" ? "Demo day" : "Preselección"),
+    tipo: item.tipo,
+    fecha_inicio: item.fecha_inicio,
+    fecha_fin: item.fecha_fin,
+    convocatoria_id: item.convocatoria_id,
+  }));
+
+  const ahora = Date.now();
+  const etapa =
+    etapasEvaluacion.find((item) => {
+      const inicio = item.fecha_inicio ? new Date(item.fecha_inicio).getTime() : null;
+      const fin = item.fecha_fin ? new Date(item.fecha_fin).getTime() : null;
+      return (inicio === null || inicio <= ahora) && (fin === null || fin >= ahora);
+    }) ??
+    etapasEvaluacion.find((item) => {
+      const inicio = item.fecha_inicio ? new Date(item.fecha_inicio).getTime() : null;
+      return inicio === null || inicio > ahora;
+    }) ??
+    etapasEvaluacion[0] ??
+    null;
 
   // Config de la convocatoria activa (para estados y transiciones personalizadas)
   type ConvocatoriaConfig = {
@@ -117,8 +146,9 @@ export default async function AdminProyectosPage() {
       <ProyectosPanel
         proyectos={proyectos}
         evaluadores={evaluadores}
+        etapasEvaluacion={etapasEvaluacion}
         etapaEvalId={etapa?.id ?? null}
-        etapaFutura={etapa ? new Date(etapa.fecha_inicio as string) > new Date() : false}
+        etapaFutura={Boolean(etapa?.fecha_inicio && new Date(etapa.fecha_inicio).getTime() > ahora)}
         etapaNombre={(etapa as { nombre?: string } | null)?.nombre ?? null}
         estadoBadge={resolveEstadoBadge(convConfig?.estadosBadge)}
         transiciones={resolveTransiciones(convConfig?.transicionesEstado)}

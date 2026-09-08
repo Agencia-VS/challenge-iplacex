@@ -21,6 +21,15 @@ export interface EvaluadorSimple {
   rol: string;
 }
 
+export interface EtapaEvaluacionSimple {
+  id: number;
+  nombre: string;
+  tipo: string;
+  fecha_inicio: string | null;
+  fecha_fin: string | null;
+  convocatoria_id: number;
+}
+
 export interface AsignacionSimple {
   evaluador_id: string;
   etapa_id: number;
@@ -41,6 +50,7 @@ export interface ProyectoPanelRow {
 export function ProyectosPanel({
   proyectos,
   evaluadores,
+  etapasEvaluacion,
   etapaEvalId,
   etapaFutura = false,
   etapaNombre = null,
@@ -49,6 +59,7 @@ export function ProyectosPanel({
 }: {
   proyectos: ProyectoPanelRow[];
   evaluadores: EvaluadorSimple[];
+  etapasEvaluacion: EtapaEvaluacionSimple[];
   etapaEvalId: number | null;
   etapaFutura?: boolean;
   etapaNombre?: string | null;
@@ -57,28 +68,41 @@ export function ProyectosPanel({
 }) {
   const router = useRouter();
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [loadingKey, setLoadingKey] = useState<string | null>(null);
+  const [loadingKeys, setLoadingKeys] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [assignmentOverrides, setAssignmentOverrides] = useState<Record<string, boolean>>({});
+  const [selectedEtapaId, setSelectedEtapaId] = useState<number | null>(etapaEvalId);
+
+  const etapaSeleccionada = etapasEvaluacion.find((item) => item.id === selectedEtapaId) ?? null;
+  const activeEtapaId = etapaSeleccionada?.id ?? etapaEvalId;
+  const activeEtapaNombre = etapaSeleccionada?.nombre ?? etapaNombre;
+  const activeEtapaFutura = etapaSeleccionada?.fecha_inicio
+    ? new Date(etapaSeleccionada.fecha_inicio).getTime() > Date.now()
+    : etapaFutura;
 
   async function handleToggle(proyectoId: string, evaluadorId: string) {
-    if (!etapaEvalId) return;
+    if (activeEtapaId === null) return;
     const proyecto = proyectos.find((item) => item.id === proyectoId);
     const baseAssigned = proyecto?.asignaciones.some(
       (assignment) =>
-        assignment.etapa_id === etapaEvalId && assignment.evaluador_id === evaluadorId,
+        assignment.etapa_id === activeEtapaId && assignment.evaluador_id === evaluadorId,
     ) ?? false;
-    const key = [proyectoId, evaluadorId, etapaEvalId].join("-");
+    const key = [proyectoId, evaluadorId, activeEtapaId].join("-");
     const currentAssigned = assignmentOverrides[key] ?? baseAssigned;
 
-    setLoadingKey(key);
+    setLoadingKeys((prev) => ({ ...prev, [key]: true }));
     setError(null);
     setSuccess(null);
     setAssignmentOverrides((prev) => ({ ...prev, [key]: !currentAssigned }));
 
-    const res = await toggleAsignacion(proyectoId, evaluadorId, etapaEvalId);
-    setLoadingKey(null);
+    const res = await toggleAsignacion(proyectoId, evaluadorId, activeEtapaId);
+    setLoadingKeys((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+
     if (!res.ok) {
       setAssignmentOverrides((prev) => ({ ...prev, [key]: currentAssigned }));
       setError(res.error);
@@ -87,16 +111,20 @@ export function ProyectosPanel({
 
     const evaluador = evaluadores.find((item) => item.id === evaluadorId);
     const accion = currentAssigned ? "Se quitó" : "Se asignó";
-    const ronda = etapaNombre ? " para " + etapaNombre : "";
+    const ronda = activeEtapaNombre ? " para " + activeEtapaNombre : "";
     setSuccess(accion + " " + (evaluador?.nombre ?? "el evaluador") + ronda + ".");
-    router.refresh();
   }
+
   async function handleEstado(proyectoId: string, estado: string) {
-    setLoadingKey(`estado-${proyectoId}`);
+    setLoadingKeys((prev) => ({ ...prev, [`estado-${proyectoId}`]: true }));
     setError(null);
     setSuccess(null);
     const res = await cambiarEstadoPostulacion(proyectoId, estado);
-    setLoadingKey(null);
+    setLoadingKeys((prev) => {
+      const next = { ...prev };
+      delete next[`estado-${proyectoId}`];
+      return next;
+    });
     if (!res.ok) setError(res.error);
     else router.refresh();
   }
@@ -130,16 +158,50 @@ export function ProyectosPanel({
         </div>
       )}
 
+
+      {etapasEvaluacion.length > 0 && (
+        <Card variant="ghost" className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="brand-eyebrow text-brand-ink-soft">Etapa de evaluación</p>
+            <p className="mt-1 text-[12px] text-brand-ink-muted">
+              Elige la ronda en la que quieres distribuir los proyectos.
+            </p>
+          </div>
+          <select
+            value={activeEtapaId ?? ""}
+            onChange={(event) => {
+              const nextId = event.target.value ? Number(event.target.value) : null;
+              setSelectedEtapaId(nextId);
+              setError(null);
+              setSuccess(null);
+            }}
+            className="min-w-[220px] rounded-[var(--r-sm)] border border-brand-line bg-brand-surface-raised px-3 py-2 text-[13px] text-brand-ink outline-none transition-colors focus:border-brand-secondary"
+            aria-label="Etapa de evaluación"
+          >
+            {etapasEvaluacion.map((etapa) => (
+              <option key={etapa.id} value={etapa.id}>
+                {etapa.nombre}
+              </option>
+            ))}
+          </select>
+        </Card>
+      )}
+      {etapasEvaluacion.length === 0 && (
+        <div role="alert" className="rounded-[var(--r-md)] border border-st-warning/30 bg-st-warning/5 px-4 py-3 text-[13px] text-st-warning">
+          No hay etapas de evaluación configuradas. Crea una etapa de preselección o demo day para comenzar las asignaciones.
+        </div>
+      )}
+
       <div className="flex items-center gap-2">
         <Badge tone="secondary">{enviados} enviados</Badge>
         <Badge tone="neutral">{proyectos.length} total</Badge>
-        {etapaEvalId && etapaFutura && (
-          <Badge tone="accent">Asignando para: {etapaNombre ?? "Próxima evaluación"}</Badge>
+        {activeEtapaId !== null && activeEtapaFutura && (
+          <Badge tone="accent">Asignando para: {activeEtapaNombre ?? "Próxima evaluación"}</Badge>
         )}
-        {etapaEvalId && !etapaFutura && (
-          <Badge tone="secondary">{etapaNombre ?? "Evaluación activa"}</Badge>
+        {activeEtapaId !== null && !activeEtapaFutura && (
+          <Badge tone="secondary">{activeEtapaNombre ?? "Evaluación activa"}</Badge>
         )}
-        {!etapaEvalId && (
+        {activeEtapaId === null && (
           <Badge tone="warning">Sin etapa de evaluación configurada</Badge>
         )}
       </div>
@@ -161,15 +223,15 @@ export function ProyectosPanel({
             <tbody>
               {proyectos.map((p) => {
                 const conf = estadoBadge[p.estado_postulacion] ?? { label: p.estado_postulacion, tone: "neutral" as const };
-                const asignacionesEtapa = etapaEvalId === null
+                const asignacionesEtapa = activeEtapaId === null
                   ? []
-                  : p.asignaciones.filter((a) => a.etapa_id === etapaEvalId);
+                  : p.asignaciones.filter((a) => a.etapa_id === activeEtapaId);
                 const asignados = new Set(
                   evaluadores
                     .filter((ev) => {
                       const baseAssigned = asignacionesEtapa.some((a) => a.evaluador_id === ev.id);
-                      if (etapaEvalId === null) return false;
-                      const key = [p.id, ev.id, etapaEvalId].join("-");
+                      if (activeEtapaId === null) return false;
+                      const key = [p.id, ev.id, activeEtapaId].join("-");
                       return assignmentOverrides[key] ?? baseAssigned;
                     })
                     .map((ev) => ev.id),
@@ -247,8 +309,8 @@ export function ProyectosPanel({
                                 <div>
                                   <p className="brand-eyebrow text-brand-ink-soft">Asignar evaluadores</p>
                                   <p className="mt-1 text-[12px] text-brand-ink-muted">
-                                    {etapaNombre ? "Ronda: " + etapaNombre : "Selecciona los evaluadores para la ronda actual."}
-                                    {etapaFutura && etapaEvalId && (
+                                    {activeEtapaNombre ? "Ronda: " + activeEtapaNombre : "Selecciona los evaluadores para la ronda actual."}
+                                    {activeEtapaFutura && activeEtapaId !== null && (
                                       <span className="ml-2 text-brand-accent">(aún no iniciada)</span>
                                     )}
                                   </p>
@@ -269,8 +331,8 @@ export function ProyectosPanel({
                                 <div className="space-y-2">
                                   {evaluadores.map((ev) => {
                                     const assigned = asignados.has(ev.id);
-                                    const key = etapaEvalId === null ? "" : [p.id, ev.id, etapaEvalId].join("-");
-                                    const isLoading = loadingKey === key;
+                                    const key = activeEtapaId === null ? "" : [p.id, ev.id, activeEtapaId].join("-");
+                                    const isLoading = Boolean(loadingKeys[key]);
                                     return (
                                       <label
                                         key={ev.id}
@@ -285,7 +347,7 @@ export function ProyectosPanel({
                                         <input
                                           type="checkbox"
                                           checked={assigned}
-                                          disabled={isLoading || etapaEvalId === null}
+                                          disabled={isLoading || activeEtapaId === null}
                                           onChange={() => handleToggle(p.id, ev.id)}
                                           aria-label={(assigned ? "Quitar asignación de " : "Asignar a ") + ev.nombre}
                                           className="accent-brand-secondary"
@@ -330,11 +392,11 @@ export function ProyectosPanel({
                                       key={s.estado}
                                       variant={s.danger ? "ghost" : "secondary"}
                                       size="sm"
-                                      disabled={loadingKey === `estado-${p.id}`}
+                                      disabled={loadingKeys[`estado-${p.id}`]}
                                       onClick={() => handleEstado(p.id, s.estado)}
                                       className={s.danger ? "border-st-danger/40 text-st-danger hover:bg-st-danger/5" : ""}
                                     >
-                                      {loadingKey === `estado-${p.id}` ? "…" : s.label}
+                                      {loadingKeys[`estado-${p.id}`] ? "…" : s.label}
                                     </Button>
                                   ))}
                                 </div>
