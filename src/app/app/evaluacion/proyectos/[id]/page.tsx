@@ -9,11 +9,12 @@ import type {
   NivelDesempeno,
 } from "@/lib/rubrica";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { firmarArchivos } from "@/app/actions/entregas";
 
 interface PageProps {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ asignacion?: string }>;
+  searchParams?: Promise<{ asignacion?: string | string[] }>;
 }
 
 function CampoPostulacion({
@@ -37,7 +38,10 @@ function CampoPostulacion({
 
 export default async function EvaluarProyectoPage({ params, searchParams }: PageProps) {
   const { id } = await params;
-  const { asignacion: asignacionId } = searchParams ? await searchParams : {};
+  const searchParamsValue = searchParams ? await searchParams : {};
+  const asignacionId = Array.isArray(searchParamsValue.asignacion)
+    ? searchParamsValue.asignacion[0]
+    : searchParamsValue.asignacion;
 
   const cookieStore = await cookies();
   const supabase = createServerClient(
