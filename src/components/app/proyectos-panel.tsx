@@ -86,7 +86,7 @@ function desviacion(values: number[]) {
 
 function csvCell(value: string | number | null) {
   const text = value === null ? "" : String(value);
-  return """ + text.replaceAll(""", """") + """;
+  return '"' + text.replaceAll('"', '""') + '"';
 }
 
 export function ProyectosPanel({
