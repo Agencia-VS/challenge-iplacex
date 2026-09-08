@@ -174,9 +174,8 @@ export function ProyectosPanel({
                     })
                     .map((ev) => ev.id),
                 );
-                const asignadosNombres = evaluadores
-                  .filter((ev) => asignados.has(ev.id))
-                  .map((ev) => ev.nombre);
+                const asignadosEvaluadores = evaluadores
+                  .filter((ev) => asignados.has(ev.id));
                 const isExpanded = expandedId === p.id;
                 const siguientes = transiciones[p.estado_postulacion] ?? [];
 
@@ -207,18 +206,18 @@ export function ProyectosPanel({
                         <Badge tone={conf.tone}>{conf.label}</Badge>
                       </td>
                       <td className="px-5 py-3">
-                        {asignadosNombres.length === 0 ? (
+                        {asignadosEvaluadores.length === 0 ? (
                           <span className="text-[12px] text-brand-ink-muted">Pendientes</span>
                         ) : (
                           <div className="max-w-[220px] space-y-1">
-                            {asignadosNombres.slice(0, 2).map((nombre) => (
-                              <span key={nombre} className="block truncate text-[12px] text-brand-ink">
-                                {nombre}
+                            {asignadosEvaluadores.slice(0, 2).map((ev) => (
+                              <span key={ev.id} className="block truncate text-[12px] text-brand-ink">
+                                {ev.nombre}
                               </span>
                             ))}
-                            {asignadosNombres.length > 2 && (
+                            {asignadosEvaluadores.length > 2 && (
                               <span className="block text-[11px] text-brand-ink-muted">
-                                +{asignadosNombres.length - 2} más
+                                +{asignadosEvaluadores.length - 2} más
                               </span>
                             )}
                           </div>
@@ -298,13 +297,17 @@ export function ProyectosPanel({
                                           <span className="block truncate text-[11px] text-brand-ink-muted">
                                             {ev.email}
                                           </span>
+                                          <span className="mt-0.5 block text-[10px] uppercase tracking-wide text-brand-ink-muted">
+                                            {ev.rol === "comite_tecnico" ? "Comité técnico" : "Jurado"}
+                                          </span>
                                         </span>
                                         <Badge tone={assigned ? "success" : "neutral"}
                                         >
                                           {assigned ? "Asignado" : "Disponible"}
                                         </Badge>
                                       </label>
-                                    );                                  })}
+                                    );
+                                  })}
                                 </div>
                               )}
                             </div>
