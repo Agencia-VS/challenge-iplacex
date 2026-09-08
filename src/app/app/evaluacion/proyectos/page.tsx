@@ -20,6 +20,7 @@ type Asignacion = {
 };
 
 type Evaluacion = {
+  asignacion_id: string;
   proyecto_id: string;
   estado: string;
   puntaje_ponderado: number | null;
@@ -58,13 +59,13 @@ export default async function ProyectosEvaluadorPage() {
   const { data: evaluacionesRaw } = proyectoIds.length
     ? await supabase
         .from("evaluaciones")
-        .select("proyecto_id, estado, puntaje_ponderado")
+        .select("asignacion_id, proyecto_id, estado, puntaje_ponderado")
         .in("proyecto_id", proyectoIds)
         .eq("evaluador_id", user.id)
     : { data: [] as Evaluacion[] };
 
   const evalMap = new Map(
-    ((evaluacionesRaw ?? []) as Evaluacion[]).map(e => [e.proyecto_id, e]),
+    ((evaluacionesRaw ?? []) as Evaluacion[]).map(e => [e.asignacion_id, e]),
   );
 
   return (
@@ -124,7 +125,7 @@ export default async function ProyectosEvaluadorPage() {
                     <Badge tone={tone}>{badgeLabel}</Badge>
                     {a.proyecto && (
                       <Button
-                        href={`/app/evaluacion/proyectos/${a.proyecto.id}`}
+                        href={`/app/evaluacion/proyectos/${a.proyecto.id}?asignacion=${encodeURIComponent(a.id)}`}
                         variant={ev?.estado === "finalizada" ? "ghost" : "secondary"}
                         size="sm"
                       >

@@ -9,14 +9,39 @@ import type {
   NivelDesempeno,
 } from "@/lib/rubrica";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { firmarArchivos } from "@/app/actions/entregas";
 
 interface PageProps {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ asignacion?: string | string[] }>;
 }
 
-export default async function EvaluarProyectoPage({ params }: PageProps) {
+function CampoPostulacion({
+  label,
+  value,
+  className = "",
+}: {
+  label: string;
+  value: string | null;
+  className?: string;
+}) {
+  return (
+    <section className={className}>
+      <p className="brand-eyebrow text-brand-ink-muted">{label}</p>
+      <p className="mt-1 whitespace-pre-line text-[13px] leading-relaxed text-brand-ink-soft">
+        {value?.trim() || "No informado"}
+      </p>
+    </section>
+  );
+}
+
+export default async function EvaluarProyectoPage({ params, searchParams }: PageProps) {
   const { id } = await params;
+  const searchParamsValue = searchParams ? await searchParams : {};
+  const asignacionId = Array.isArray(searchParamsValue.asignacion)
+    ? searchParamsValue.asignacion[0]
+    : searchParamsValue.asignacion;
 
   const cookieStore = await cookies();
   const supabase = createServerClient(
@@ -46,18 +71,36 @@ export default async function EvaluarProyectoPage({ params }: PageProps) {
   // Cargar proyecto (datos ciegos: NO nombre del equipo ni postulante)
   const { data: proyecto } = await supabase
     .from("proyectos")
-    .select("id, codigo_ciego, video_id_youtube, video_url, categorias ( slug )")
+    .select(`
+      id, codigo_ciego, nombre_proyecto, resumen_ejecutivo,
+      problema, segmento_usuarios, solucion, ods,
+      categorias ( slug )
+    `)
     .eq("id", id)
     .single();
   if (!proyecto) notFound();
 
-  // Buscar la asignacion de este evaluador para este proyecto
-  const { data: asignacion } = await supabase
+  // Buscar la asignación exacta. El mismo proyecto puede tener una asignación
+  // distinta para preselección, bootcamp o Demo Day.
+  let asignacionesQuery = supabase
     .from("asignaciones")
-    .select("id, etapa_id, etapas ( tipo )")
+    .select("id, etapa_id, etapas ( tipo, nombre )")
     .eq("proyecto_id", id)
     .eq("evaluador_id", user.id)
-    .maybeSingle();
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (asignacionId) {
+    asignacionesQuery = asignacionesQuery.eq("id", asignacionId);
+  }
+
+  const { data: asignacionesRaw } = await asignacionesQuery;
+  type AsignacionEvaluacion = {
+    id: string;
+    etapa_id: number;
+    etapas: { tipo: string; nombre: string } | null;
+  };
+  const asignacion = ((asignacionesRaw?.[0] as unknown) as AsignacionEvaluacion | undefined) ?? null;
   if (!asignacion) redirect("/app/evaluacion");
 
   // Los criterios y sus ponderaciones salen de la rúbrica (src/lib/rubrica.ts),
@@ -65,11 +108,21 @@ export default async function EvaluarProyectoPage({ params }: PageProps) {
   const categoria =
     ((proyecto.categorias as unknown as { slug: string } | null)?.slug as CategoriaSlug) ??
     "idea-temprana";
+  const contenido = proyecto as unknown as {
+    nombre_proyecto: string | null;
+    resumen_ejecutivo: string | null;
+    problema: string | null;
+    segmento_usuarios: string | null;
+    solucion: string | null;
+    ods: number[] | null;
+  };
 
   // La preselección no tiene presentación oral: el pitch no se califica y el
   // puntaje se normaliza. El bootcamp representa la semifinal operativa y el
   // Demo Day corresponde a la evaluación final.
-  const tipoEtapa = (asignacion.etapas as unknown as { tipo: string } | null)?.tipo;
+  const etapaInfo = asignacion.etapas as unknown as { tipo: string; nombre: string } | null;
+  const tipoEtapa = etapaInfo?.tipo;
+  const nombreEtapa = etapaInfo?.nombre ?? null;
   const etapaEvaluacion: EtapaEvaluacion =
     tipoEtapa === "preseleccion" ? "preseleccion"
     : tipoEtapa === "semifinal" || tipoEtapa === "bootcamp" ? "semifinal"
@@ -81,7 +134,8 @@ export default async function EvaluarProyectoPage({ params }: PageProps) {
     .eq("asignacion_id", asignacion.id)
     .maybeSingle();
 
-  // Entrega del proyecto para la etapa que se evalúa (Video Pitch, Pitch 60s, etc.)
+  // Entrega del proyecto para la etapa que se evalúa. En preselección no hay
+  // entrega audiovisual: se evalúan los antecedentes escritos de la postulación.
   const { data: entrega } = asignacion.etapa_id
     ? await supabase
         .from("entregas")
@@ -107,7 +161,7 @@ export default async function EvaluarProyectoPage({ params }: PageProps) {
   return (
     <div className="space-y-6 pb-20">
       <header>
-        <p className="brand-eyebrow text-brand-accent">Evaluación 1</p>
+        <p className="brand-eyebrow text-brand-accent">{nombreEtapa ?? "Evaluación"}</p>
         <h1 className="brand-display mt-1.5 text-[32px] leading-tight text-brand-primary md:text-[40px]">
           Evaluar proyecto
         </h1>
@@ -116,9 +170,54 @@ export default async function EvaluarProyectoPage({ params }: PageProps) {
         </p>
       </header>
 
+      <Card className="space-y-5 p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-brand-line pb-4">
+          <div>
+            <p className="brand-eyebrow text-brand-secondary">Postulación inicial</p>
+            <h2 className="mt-1 text-[18px] font-semibold text-brand-primary">
+              {contenido.nombre_proyecto ?? "Proyecto sin nombre"}
+            </h2>
+          </div>
+          <Badge tone="secondary">Código {proyecto.codigo_ciego}</Badge>
+        </div>
+
+        <div className="grid gap-5 md:grid-cols-2">
+          <CampoPostulacion
+            label="Resumen ejecutivo"
+            value={contenido.resumen_ejecutivo}
+            className="md:col-span-2"
+          />
+          <CampoPostulacion label="Problema u oportunidad" value={contenido.problema} />
+          <CampoPostulacion
+            label="Segmento de usuarios o beneficiarios"
+            value={contenido.segmento_usuarios}
+          />
+          <CampoPostulacion
+            label="Solución propuesta"
+            value={contenido.solucion}
+            className="md:col-span-2"
+          />
+        </div>
+
+        <section>
+          <p className="brand-eyebrow text-brand-ink-muted">ODS vinculados</p>
+          {contenido.ods?.length ? (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {contenido.ods.map((ods) => (
+                <Badge key={ods} tone="neutral">ODS {ods}</Badge>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-1 text-[13px] text-brand-ink-soft">No informado</p>
+          )}
+        </section>
+      </Card>
+
       {tieneEntrega && (
         <Card className="space-y-3 p-6">
-          <p className="brand-eyebrow text-brand-secondary">Entrega de esta etapa</p>
+          <p className="brand-eyebrow text-brand-secondary">
+            Entrega de {nombreEtapa ?? "esta etapa"}
+          </p>
           {entrega?.video_url && (
             <a
               href={entrega.video_url}
@@ -156,10 +255,9 @@ export default async function EvaluarProyectoPage({ params }: PageProps) {
         asignacionId={asignacion.id}
         etapaId={asignacion.etapa_id}
         codigoCiego={proyecto.codigo_ciego}
-        videoIdYoutube={proyecto.video_id_youtube}
-        videoUrl={(proyecto as { video_url?: string | null }).video_url ?? null}
         categoria={categoria}
         etapa={etapaEvaluacion}
+        etapaNombre={nombreEtapa}
         initial={{
           niveles:
             (prevEval?.puntajes as Partial<Record<CriterioSlug, NivelDesempeno>> | null) ?? undefined,

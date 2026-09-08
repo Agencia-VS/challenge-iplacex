@@ -26,8 +26,8 @@ export interface EvaluacionFormProps {
   asignacionId: string;
   etapaId: number;
   codigoCiego: string;
-  videoIdYoutube: string | null;
-  videoUrl?: string | null;
+  /** Nombre visible de la etapa que se está evaluando. */
+  etapaNombre?: string | null;
   /** Decide qué descriptores de desempeño se muestran. */
   categoria: CategoriaSlug;
   /** La preselección no evalúa el pitch y normaliza el puntaje. */
@@ -39,21 +39,14 @@ export interface EvaluacionFormProps {
   };
 }
 
-function getDriveEmbedUrl(url: string): string | null {
-  // https://drive.google.com/file/d/FILE_ID/view  →  /preview
-  const m = url.match(/\/file\/d\/([^/]+)/);
-  return m ? `https://drive.google.com/file/d/${m[1]}/preview` : null;
-}
-
 export function EvaluacionForm({
   proyectoId,
   asignacionId,
   etapaId,
   codigoCiego,
-  videoIdYoutube,
-  videoUrl,
   categoria,
   etapa,
+  etapaNombre = null,
   initial = {},
 }: EvaluacionFormProps) {
   const router = useRouter();
@@ -103,50 +96,14 @@ export function EvaluacionForm({
     <div className="grid gap-6 lg:grid-cols-[1fr,360px]">
       {/* ─── Columna principal ─────────────────────────────────────────── */}
       <div className="space-y-5">
-        {/* Video */}
-        <Card className="overflow-hidden p-0">
-          <div className="aspect-video w-full bg-brand-ink">
-            {videoIdYoutube ? (
-              <iframe
-                src={`https://www.youtube.com/embed/${videoIdYoutube}`}
-                className="h-full w-full"
-                title="Video pitch"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-            ) : videoUrl && videoUrl.includes("drive.google.com") ? (
-              <iframe
-                src={getDriveEmbedUrl(videoUrl) ?? videoUrl}
-                className="h-full w-full"
-                title="Video pitch"
-                allow="autoplay"
-                allowFullScreen
-              />
-            ) : videoUrl ? (
-              <div className="grid h-full place-items-center gap-3">
-                <span className="text-[13px] text-white/60">Video en enlace externo</span>
-                <a
-                  href={videoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="rounded-[var(--r-sm)] bg-brand-accent px-4 py-2 text-[13px] font-semibold text-white hover:bg-brand-accent/90"
-                >
-                  Ver video →
-                </a>
-              </div>
-            ) : (
-              <div className="grid h-full place-items-center text-[13px] text-white/60">
-                Sin video adjunto
-              </div>
-            )}
+        <Card className="flex items-center justify-between gap-3 p-5">
+          <div>
+            <p className="brand-eyebrow text-brand-ink-muted">Proyecto en ciego</p>
+            <p className="brand-display mt-0.5 text-[20px] text-brand-primary">{codigoCiego}</p>
           </div>
-          <div className="flex items-center justify-between gap-3 border-t border-brand-line px-6 py-4">
-            <div>
-              <p className="brand-eyebrow text-brand-ink-muted">Proyecto en ciego</p>
-              <p className="brand-display mt-0.5 text-[20px] text-brand-primary">{codigoCiego}</p>
-            </div>
-            <Badge tone="warning">Evaluación 1</Badge>
-          </div>
+          <Badge tone="secondary">
+            {etapaNombre ?? (etapa === "preseleccion" ? "Preselección" : etapa === "semifinal" ? "Bootcamp" : "Demo Day")}
+          </Badge>
         </Card>
 
         {/* Criterios */}
