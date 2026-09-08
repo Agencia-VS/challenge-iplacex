@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,7 @@ import {
 export interface EvaluadorSimple {
   id: string;
   nombre: string;
+  email: string;
   rol: string;
 }
 
@@ -58,21 +59,42 @@ export function ProyectosPanel({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [loadingKey, setLoadingKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [assignmentOverrides, setAssignmentOverrides] = useState<Record<string, boolean>>({});
 
   async function handleToggle(proyectoId: string, evaluadorId: string) {
     if (!etapaEvalId) return;
-    const key = `${proyectoId}-${evaluadorId}`;
+    const proyecto = proyectos.find((item) => item.id === proyectoId);
+    const baseAssigned = proyecto?.asignaciones.some(
+      (assignment) =>
+        assignment.etapa_id === etapaEvalId && assignment.evaluador_id === evaluadorId,
+    ) ?? false;
+    const key = [proyectoId, evaluadorId, etapaEvalId].join("-");
+    const currentAssigned = assignmentOverrides[key] ?? baseAssigned;
+
     setLoadingKey(key);
     setError(null);
+    setSuccess(null);
+    setAssignmentOverrides((prev) => ({ ...prev, [key]: !currentAssigned }));
+
     const res = await toggleAsignacion(proyectoId, evaluadorId, etapaEvalId);
     setLoadingKey(null);
-    if (!res.ok) setError(res.error);
-    else router.refresh();
-  }
+    if (!res.ok) {
+      setAssignmentOverrides((prev) => ({ ...prev, [key]: currentAssigned }));
+      setError(res.error);
+      return;
+    }
 
+    const evaluador = evaluadores.find((item) => item.id === evaluadorId);
+    const accion = currentAssigned ? "Se quitó" : "Se asignó";
+    const ronda = etapaNombre ? " para " + etapaNombre : "";
+    setSuccess(accion + " " + (evaluador?.nombre ?? "el evaluador") + ronda + ".");
+    router.refresh();
+  }
   async function handleEstado(proyectoId: string, estado: string) {
     setLoadingKey(`estado-${proyectoId}`);
     setError(null);
+    setSuccess(null);
     const res = await cambiarEstadoPostulacion(proyectoId, estado);
     setLoadingKey(null);
     if (!res.ok) setError(res.error);
@@ -98,8 +120,13 @@ export function ProyectosPanel({
   return (
     <div className="space-y-4">
       {error && (
-        <div className="rounded-[var(--r-md)] border border-st-danger/30 bg-st-danger/5 px-4 py-3 text-[13px] text-st-danger">
+        <div role="alert" className="rounded-[var(--r-md)] border border-st-danger/30 bg-st-danger/5 px-4 py-3 text-[13px] text-st-danger">
           {error}
+        </div>
+      )}
+      {success && (
+        <div role="status" className="rounded-[var(--r-md)] border border-st-success/30 bg-st-success/5 px-4 py-3 text-[13px] text-st-success">
+          ✓ {success}
         </div>
       )}
 
@@ -134,12 +161,26 @@ export function ProyectosPanel({
             <tbody>
               {proyectos.map((p) => {
                 const conf = estadoBadge[p.estado_postulacion] ?? { label: p.estado_postulacion, tone: "neutral" as const };
-                const asignados = new Set(p.asignaciones.map(a => a.evaluador_id));
+                const asignacionesEtapa = etapaEvalId === null
+                  ? []
+                  : p.asignaciones.filter((a) => a.etapa_id === etapaEvalId);
+                const asignados = new Set(
+                  evaluadores
+                    .filter((ev) => {
+                      const baseAssigned = asignacionesEtapa.some((a) => a.evaluador_id === ev.id);
+                      if (etapaEvalId === null) return false;
+                      const key = [p.id, ev.id, etapaEvalId].join("-");
+                      return assignmentOverrides[key] ?? baseAssigned;
+                    })
+                    .map((ev) => ev.id),
+                );
+                const asignadosEvaluadores = evaluadores
+                  .filter((ev) => asignados.has(ev.id));
                 const isExpanded = expandedId === p.id;
                 const siguientes = transiciones[p.estado_postulacion] ?? [];
 
                 return (
-                  <>
+                  <Fragment key={p.id}>
                     <tr
                       key={p.id}
                       className={cn(
@@ -165,9 +206,25 @@ export function ProyectosPanel({
                         <Badge tone={conf.tone}>{conf.label}</Badge>
                       </td>
                       <td className="px-5 py-3">
-                        <span className="font-[family-name:var(--font-mono)] text-[12px] text-brand-ink-muted">
-                          {asignados.size} / {evaluadores.length}
-                        </span>
+                        {asignadosEvaluadores.length === 0 ? (
+                          <span className="text-[12px] text-brand-ink-muted">Pendientes</span>
+                        ) : (
+                          <div className="max-w-[220px] space-y-1">
+                            {asignadosEvaluadores.slice(0, 2).map((ev) => (
+                              <span key={ev.id} className="block truncate text-[12px] text-brand-ink">
+                                {ev.nombre}
+                              </span>
+                            ))}
+                            {asignadosEvaluadores.length > 2 && (
+                              <span className="block text-[11px] text-brand-ink-muted">
+                                +{asignadosEvaluadores.length - 2} más
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        <p className="mt-1 font-[family-name:var(--font-mono)] text-[11px] text-brand-ink-muted">
+                          {asignados.size} / {evaluadores.length} asignados
+                        </p>
                       </td>
                       <td className="px-5 py-3">
                         <button
@@ -186,12 +243,21 @@ export function ProyectosPanel({
                           <div className="grid gap-6 md:grid-cols-2">
                             {/* Asignar evaluadores */}
                             <div>
-                              <p className="brand-eyebrow mb-3 text-brand-ink-soft">
-                                Asignar evaluadores
-                                {etapaFutura && etapaEvalId && (
-                                  <span className="ml-2 text-brand-accent">(ronda aún no iniciada)</span>
-                                )}
-                              </p>
+                              <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                  <p className="brand-eyebrow text-brand-ink-soft">Asignar evaluadores</p>
+                                  <p className="mt-1 text-[12px] text-brand-ink-muted">
+                                    {etapaNombre ? "Ronda: " + etapaNombre : "Selecciona los evaluadores para la ronda actual."}
+                                    {etapaFutura && etapaEvalId && (
+                                      <span className="ml-2 text-brand-accent">(aún no iniciada)</span>
+                                    )}
+                                  </p>
+                                </div>
+                                <Badge tone={asignados.size === evaluadores.length && evaluadores.length > 0 ? "success" : "neutral"}
+                                >
+                                  {asignados.size} / {evaluadores.length} asignados
+                                </Badge>
+                              </div>
                               {evaluadores.length === 0 ? (
                                 <p className="text-[12px] text-brand-ink-muted">
                                   No hay evaluadores registrados.{" "}
@@ -203,7 +269,7 @@ export function ProyectosPanel({
                                 <div className="space-y-2">
                                   {evaluadores.map((ev) => {
                                     const assigned = asignados.has(ev.id);
-                                    const key = `${p.id}-${ev.id}`;
+                                    const key = etapaEvalId === null ? "" : [p.id, ev.id, etapaEvalId].join("-");
                                     const isLoading = loadingKey === key;
                                     return (
                                       <label
@@ -219,15 +285,25 @@ export function ProyectosPanel({
                                         <input
                                           type="checkbox"
                                           checked={assigned}
-                                          disabled={isLoading}
+                                          disabled={isLoading || etapaEvalId === null}
                                           onChange={() => handleToggle(p.id, ev.id)}
+                                          aria-label={(assigned ? "Quitar asignación de " : "Asignar a ") + ev.nombre}
                                           className="accent-brand-secondary"
                                         />
-                                        <span className="flex-1 text-[13px] text-brand-ink">
-                                          {ev.nombre}
+                                        <span className="min-w-0 flex-1">
+                                          <span className="block truncate text-[13px] text-brand-ink">
+                                            {ev.nombre}
+                                          </span>
+                                          <span className="block truncate text-[11px] text-brand-ink-muted">
+                                            {ev.email}
+                                          </span>
+                                          <span className="mt-0.5 block text-[10px] uppercase tracking-wide text-brand-ink-muted">
+                                            {ev.rol === "comite_tecnico" ? "Comité técnico" : "Jurado"}
+                                          </span>
                                         </span>
-                                        <Badge tone={ev.rol === "comite_tecnico" ? "secondary" : "neutral"}>
-                                          {ev.rol === "comite_tecnico" ? "Comité" : "Jurado"}
+                                        <Badge tone={assigned ? "success" : "neutral"}
+                                        >
+                                          {assigned ? "Asignado" : "Disponible"}
                                         </Badge>
                                       </label>
                                     );
@@ -268,7 +344,7 @@ export function ProyectosPanel({
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 );
               })}
             </tbody>

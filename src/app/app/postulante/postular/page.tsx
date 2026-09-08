@@ -3,8 +3,21 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { PostularForm } from "@/components/app/postular-form";
+import type { IntegranteForm } from "@/components/app/postular-form";
 
 export const metadata: Metadata = { title: "Postular proyecto" };
+
+type IntegranteDB = {
+  rut: string;
+  nombre: string;
+  correo: string;
+  calidad: IntegranteForm["calidad"];
+  carrera: string | null;
+  sede: string | null;
+  declara_mayor_edad: boolean;
+  declara_matricula_vigente: boolean | null;
+  es_representante: boolean;
+};
 
 export default async function PostularPage() {
   const cookieStore = await cookies();
@@ -36,7 +49,18 @@ export default async function PostularPage() {
       declaracion_autoria,
       equipo_nombre,
       video_url,
-      categorias ( numero )
+      categorias ( numero ),
+      integrantes (
+        rut,
+        nombre,
+        correo,
+        calidad,
+        carrera,
+        sede,
+        declara_mayor_edad,
+        declara_matricula_vigente,
+        es_representante
+      )
     `)
     .eq("postulante_id", user.id)
     .eq("estado_postulacion", "borrador")
@@ -56,6 +80,17 @@ export default async function PostularPage() {
         declaracionAutoria: proyectoExistente.declaracion_autoria ?? false,
         equipoNombre: proyectoExistente.equipo_nombre ?? "",
         videoUrl: proyectoExistente.video_url ?? "",
+        integrantes: ((proyectoExistente.integrantes as unknown as IntegranteDB[] | null) ?? []).map((integrante) => ({
+          rut: integrante.rut,
+          nombre: integrante.nombre,
+          correo: integrante.correo,
+          calidad: integrante.calidad,
+          carrera: integrante.carrera ?? "",
+          sede: integrante.sede ?? "",
+          declaraMayorDeEdad: integrante.declara_mayor_edad,
+          declaraMatriculaVigente: integrante.declara_matricula_vigente ?? false,
+          esRepresentante: integrante.es_representante,
+        })),
       }
     : {};
 
