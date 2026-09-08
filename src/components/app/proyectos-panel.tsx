@@ -309,7 +309,7 @@ export function ProyectosPanel({
                                 <div>
                                   <p className="brand-eyebrow text-brand-ink-soft">Asignar evaluadores</p>
                                   <p className="mt-1 text-[12px] text-brand-ink-muted">
-                                    {activeEtapaNombre ? "Ronda: " + etapaNombre : "Selecciona los evaluadores para la ronda actual."}
+                                    {activeEtapaNombre ? "Ronda: " + activeEtapaNombre : "Selecciona los evaluadores para la ronda actual."}
                                     {activeEtapaFutura && activeEtapaId !== null && (
                                       <span className="ml-2 text-brand-accent">(aún no iniciada)</span>
                                     )}
