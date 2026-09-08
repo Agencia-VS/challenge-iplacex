@@ -10,7 +10,7 @@ export function CategoriasSection() {
   return (
     <Section
       id="categorias"
-      eyebrow="Tres categorías, una sola vara"
+      eyebrow="Tres categorías, un solo premio"
       eyebrowTone="accent"
       title={<>Postula donde <br className="hidden sm:block" /> está tu proyecto</>}
       description="Las tres categorías comparten los mismos cinco criterios y las mismas ponderaciones. Lo que cambia es la evidencia que se te exige, según la etapa en que esté tu proyecto: por eso una idea temprana bien formulada puede superar a un emprendimiento en operación con desempeño débil."
@@ -40,7 +40,10 @@ function CategoriaCard({ c, acento }: { c: Categoria; acento: string }) {
       </span>
 
       <div className="relative flex flex-1 flex-col">
-        <Badge tone={c.numero === 1 ? "accent" : c.numero === 2 ? "secondary" : "primary"}>
+        <Badge
+          tone={c.numero === 1 ? "accent" : c.numero === 2 ? "secondary" : "primary"}
+          className="self-start"
+        >
           Categoría {String(c.numero).padStart(2, "0")}
         </Badge>
 
@@ -51,9 +54,8 @@ function CategoriaCard({ c, acento }: { c: Categoria; acento: string }) {
           <p className="brand-eyebrow">Se evalúa con</p>
           <ul className="mt-2 space-y-1">
             {CRITERIOS.map((cr) => (
-              <li key={cr.slug} className="flex justify-between gap-3 text-[12px] text-brand-ink-soft">
-                <span>{cr.nombre}</span>
-                <span className="font-bold text-brand-ink-muted">{cr.peso}%</span>
+              <li key={cr.slug} className="text-[12px] text-brand-ink-soft">
+                {cr.nombre}
               </li>
             ))}
           </ul>

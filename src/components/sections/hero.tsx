@@ -27,11 +27,8 @@ export function Hero() {
             </span>
 
             <h1 className="brand-display mt-7 text-[clamp(44px,7vw,84px)]">
-              Emprende
-              <span className="block text-brand-accent">e innova</span>
-              <span className="mt-3 block text-[clamp(20px,2.2vw,30px)] font-bold tracking-normal text-brand-secondary-light font-[family-name:var(--font-heading)]">
-                desde Iplacex
-              </span>
+              Challenge
+              <span className="block text-brand-accent">Iplacex</span>
             </h1>
 
             <p className="mt-7 max-w-xl text-[16px] leading-relaxed text-white/75">
