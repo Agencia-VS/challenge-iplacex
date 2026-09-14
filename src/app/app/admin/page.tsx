@@ -7,6 +7,7 @@ import { Stat } from "@/components/ui/stat";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { roleHomePath } from "@/lib/roles";
+import { nombreEtapa } from "@/lib/site";
 
 export const metadata: Metadata = { title: "Panel Admin" };
 
@@ -77,7 +78,9 @@ export default async function AdminDashboard() {
   let rondaLabel = "—";
   let rondaDetail = "Sin etapa activa";
   if (etapaActual) {
-    rondaLabel = etapaActual.nombre ?? `Etapa ${etapaActual.numero}`;
+    rondaLabel = etapaActual.nombre
+      ? nombreEtapa(etapaActual.numero, etapaActual.nombre)
+      : `Etapa ${etapaActual.numero}`;
     const dias = Math.ceil(
       (new Date(etapaActual.fecha_fin as string).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24),
     );
@@ -94,7 +97,7 @@ export default async function AdminDashboard() {
             Panel de control
           </h1>
           <p className="mt-2 max-w-lg text-[14px] text-brand-ink-soft">
-            Gestiona la convocatoria, los proyectos postulados y el equipo evaluador.
+            Gestiona la convocatoria, los emprendimientos o proyectos postulados y el equipo evaluador.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -109,7 +112,7 @@ export default async function AdminDashboard() {
 
       {/* Stats globales */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Total proyectos" value={String(totalPostulaciones)} tone="primary" detail={`${enviados} enviados`} />
+        <Stat label="Total de emprendimientos o proyectos" value={String(totalPostulaciones)} tone="primary" detail={`${enviados} enviados`} />
         <Stat label="Evaluadores activos" value={String(totalEvaluadores ?? 0)} tone="secondary" detail="En el sistema" />
         <Stat label="Ronda activa" value={etapaActual ? "Sí" : "—"} tone="accent" detail={rondaDetail} />
         <Stat label="En revisión" value={String(proyectos.filter(p => p.estado_postulacion === "en_revision").length)} tone="secondary" detail="Pendientes de nota" />
@@ -120,11 +123,11 @@ export default async function AdminDashboard() {
         <Card variant="surface" className="col-span-2 p-6">
           <p className="brand-eyebrow">Postulaciones</p>
           <h2 className="mt-1 mb-5 text-[17px] font-semibold text-brand-ink">
-            Estado actual del funnel
+            Estado actual del cronograma
           </h2>
           {totalPostulaciones === 0 ? (
             <p className="text-[13px] text-brand-ink-muted">
-              Aún no hay proyectos registrados.{" "}
+              Aún no hay emprendimientos o proyectos registrados.{" "}
               <a href="/app/admin/convocatoria" className="text-brand-accent underline">Crear convocatoria →</a>
             </p>
           ) : (
@@ -146,7 +149,7 @@ export default async function AdminDashboard() {
           </ul>
           )}
           <Button variant="ghost" href="/app/admin/proyectos" className="mt-5 self-start text-[12px]">
-            Ver todos los proyectos →
+            Ver todos los emprendimientos o proyectos →
           </Button>
         </Card>
 
