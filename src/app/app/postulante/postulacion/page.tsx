@@ -85,7 +85,7 @@ export default async function MiPostulacionPage() {
           <div>
             <p className="text-[18px] font-semibold text-brand-primary">Todavía no has postulado</p>
             <p className="mt-1.5 max-w-sm text-[13px] text-brand-ink-muted">
-              Completa el formulario y envía tu proyecto antes del cierre de la convocatoria.
+              Completa el formulario y envía tu emprendimiento o proyecto antes del cierre de la convocatoria.
             </p>
           </div>
           <Button href="/app/postulante/postular">🚀 Postular ahora</Button>
@@ -133,7 +133,7 @@ export default async function MiPostulacionPage() {
                 </dd>
               </div>
               <div>
-                <dt className="brand-eyebrow">Estado del proyecto</dt>
+                <dt className="brand-eyebrow">Estado del emprendimiento o proyecto</dt>
                 <dd className="mt-1 capitalize text-brand-ink">
                   {p.ods?.length ? `${p.ods.length} ODS vinculados` : "—"}
                 </dd>
