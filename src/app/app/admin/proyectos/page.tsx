@@ -143,7 +143,7 @@ export default async function AdminProyectosPage() {
           Proyectos
         </h1>
         <p className="mt-2 text-[14px] text-brand-ink-muted">
-          Gestiona los proyectos postulados: asigna evaluadores y avanza el funnel de selección.
+          Gestiona los emprendimientos o proyectos postulados: asigna evaluadores y avanza en el cronograma de selección.
         </p>
       </header>
 
