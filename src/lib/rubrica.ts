@@ -26,8 +26,8 @@ export type EtapaEvaluacion = "preseleccion" | "semifinal" | "final";
 // ─── ESCALA ──────────────────────────────────────────────────────────────────
 
 export const NIVELES = [
-  { nivel: 4, denominacion: "Destacado",     factor: 1.0,  significado: "El desempeño supera lo esperado para la etapa de desarrollo del proyecto" },
-  { nivel: 3, denominacion: "Logrado",       factor: 0.75, significado: "El desempeño cumple lo esperado para la etapa de desarrollo del proyecto" },
+  { nivel: 4, denominacion: "Destacado",     factor: 1.0,  significado: "El desempeño supera lo esperado para la etapa de desarrollo del emprendimiento o proyecto" },
+  { nivel: 3, denominacion: "Logrado",       factor: 0.75, significado: "El desempeño cumple lo esperado para la etapa de desarrollo del emprendimiento o proyecto" },
   { nivel: 2, denominacion: "En desarrollo", factor: 0.5,  significado: "El desempeño es parcial y presenta vacíos relevantes" },
   { nivel: 1, denominacion: "Incipiente",    factor: 0.25, significado: "El desempeño no alcanza lo mínimo esperado" },
 ] as const;
@@ -72,21 +72,21 @@ export const CATEGORIAS: Categoria[] = [
     slug: "idea-temprana",
     nombre: "Idea en etapa temprana (pre-negocio)",
     alcance:
-      "Proyectos que aún no inician operaciones comerciales y se encuentran en fase de conceptualización, prototipado o validación exploratoria. No se espera evidencia de ventas ni de operación; se evalúa la calidad de la formulación, el sustento exploratorio y la conciencia sobre lo que resta validar.",
+      "Emprendimientos o proyectos que aún no inician operaciones comerciales y se encuentran en fase de conceptualización, prototipado o validación exploratoria. No se espera evidencia de ventas ni de operación; se evalúa la calidad de la formulación, el sustento exploratorio y la conciencia sobre lo que resta validar.",
   },
   {
     numero: 2,
     slug: "implementacion",
     nombre: "Emprendimiento en etapa de implementación",
     alcance:
-      "Proyectos en operación, con evidencia verificable de validación de mercado. Se evalúa la solidez de la evidencia real disponible, la tracción demostrada y la consistencia entre las métricas presentadas y la viabilidad declarada.",
+      "Emprendimientos o proyectos en operación, con evidencia verificable de validación de mercado. Se evalúa la solidez de la evidencia real disponible, la tracción demostrada y la consistencia entre las métricas presentadas y la viabilidad declarada.",
   },
   {
     numero: 3,
     slug: "intraemprendimiento",
     nombre: "Intraemprendimiento / Innovación social",
     alcance:
-      "Proyectos que introducen una mejora al interior de una organización existente, o que abordan una problemática social, comunitaria o ambiental. El eje es la pertinencia respecto del contexto declarado: la factibilidad se juzga según las condiciones reales de esa organización o comunidad, y el impacto según los beneficiarios identificados.",
+      "Emprendimientos o proyectos que introducen una mejora al interior de una organización existente o que abordan una problemática social, comunitaria o ambiental. El eje es la pertinencia respecto del contexto declarado: la factibilidad se juzga según las condiciones reales de esa organización o comunidad, y el impacto según los beneficiarios identificados.",
   },
 ];
 
@@ -122,7 +122,7 @@ export const DESCRIPTORES: Record<
     "problema": { 4: "Delimita con precisi\u00f3n un problema, ineficiencia o necesidad dentro de una organizaci\u00f3n, comunidad o territorio espec\u00edfico e identificado. Aporta evidencia levantada en ese contexto (datos internos, testimonios, diagn\u00f3stico participativo) que acredita su relevancia y a qui\u00e9nes afecta." },
     "propuesta-valor": { 4: "La soluci\u00f3n transforma de manera significativa una pr\u00e1ctica, proceso o condici\u00f3n existente en el contexto abordado. Se distingue con claridad de lo que la organizaci\u00f3n o comunidad ya realiza, y su valor est\u00e1 formulado desde la perspectiva de los beneficiarios." },
     "viabilidad": { 4: "Demuestra factibilidad de implementaci\u00f3n en el contexto real: identifica recursos requeridos, actores que deben involucrarse y condiciones institucionales o comunitarias necesarias. Presenta respaldo, compromiso o validaci\u00f3n de la organizaci\u00f3n o comunidad destinataria." },
-    "impacto": { 4: "Define con precisi\u00f3n los beneficiarios y el cambio esperado, propone indicadores medibles y un mecanismo de sostenibilidad que no depende exclusivamente del impulso de sus autores. Vincula el proyecto de forma fundada con uno o m\u00e1s ODS." },
+    "impacto": { 4: "Define con precisi\u00f3n los beneficiarios y el cambio esperado, propone indicadores medibles y un mecanismo de sostenibilidad que no depende exclusivamente del impulso de sus autores. Vincula el emprendimiento o proyecto de forma fundada con uno o m\u00e1s ODS." },
     "comunicacion": { 4: "La presentaci\u00f3n es clara, ordenada y ajustada al tiempo asignado. El relato sit\u00faa el problema en su contexto y comunica con convicci\u00f3n el cambio propuesto. Responde con solvencia y precisi\u00f3n a las preguntas del jurado." },
   },
 };
