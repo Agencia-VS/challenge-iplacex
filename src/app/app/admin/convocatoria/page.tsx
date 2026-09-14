@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { roleHomePath } from "@/lib/roles";
+import { nombreEtapa } from "@/lib/site";
 
 export const metadata: Metadata = { title: "Convocatoria · Admin" };
 
@@ -128,7 +129,7 @@ export default async function ConvocatoriaPage() {
                 </dd>
               </div>
               <div>
-                <dt className="brand-eyebrow">Evaluadores por proyecto</dt>
+                <dt className="brand-eyebrow">Evaluadores por emprendimiento o proyecto</dt>
                 <dd className="mt-1 text-brand-ink">
                   {conv.config?.nEvaluadoresPorProyecto ?? 3} · evaluación ciega
                 </dd>
@@ -171,7 +172,7 @@ export default async function ConvocatoriaPage() {
                     <td className="px-5 py-3 font-[family-name:var(--font-mono)] font-bold text-brand-secondary">
                       {String(e.numero).padStart(2, "0")}
                     </td>
-                    <td className="px-5 py-3 font-semibold text-brand-ink">{e.nombre}</td>
+                    <td className="px-5 py-3 font-semibold text-brand-ink">{nombreEtapa(e.numero, e.nombre)}</td>
                     <td className="px-5 py-3 text-brand-ink-muted">
                       {e.fecha_inicio
                         ? new Date(e.fecha_inicio).toLocaleDateString("es-CL", { day: "numeric", month: "short" })
