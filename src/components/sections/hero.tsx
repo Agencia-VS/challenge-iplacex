@@ -32,9 +32,9 @@ export function Hero() {
             </h1>
 
             <p className="mt-7 max-w-xl text-[16px] leading-relaxed text-white/75">
-              Concurso de Emprendimiento e Innovación abierto a estudiantes, egresados y
-              titulados de Iplacex. Tres categorías según la etapa en que esté tu proyecto,
-              una misma vara de evaluación y un ranking único.
+              Concurso de Emprendimiento e Innovación abierto a estudiantes y titulados de
+              Iplacex. Tres categorías según la etapa en que se encuentre tu emprendimiento
+              o proyecto, una misma vara de evaluación y un ranking único.
             </p>
 
             <div className="mt-9 flex flex-wrap gap-3">
