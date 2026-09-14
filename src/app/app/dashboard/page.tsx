@@ -35,7 +35,7 @@ export default function DashboardPage() {
         <Card>
           <div className="flex items-center justify-between">
             <h2 className="font-[family-name:var(--font-heading)] text-[16px] font-bold text-brand-primary">
-              Timeline de la convocatoria
+              Cronograma de la convocatoria
             </h2>
             <Badge tone="accent">Cierre 28 ago</Badge>
           </div>

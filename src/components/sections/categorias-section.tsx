@@ -12,8 +12,8 @@ export function CategoriasSection() {
       id="categorias"
       eyebrow="Tres categorías, un solo premio"
       eyebrowTone="accent"
-      title={<>Postula donde <br className="hidden sm:block" /> está tu proyecto</>}
-      description="Las tres categorías comparten los mismos cinco criterios y las mismas ponderaciones. Lo que cambia es la evidencia que se te exige, según la etapa en que esté tu proyecto: por eso una idea temprana bien formulada puede superar a un emprendimiento en operación con desempeño débil."
+      title={<>Postula donde <br className="hidden sm:block" /> está tu emprendimiento o proyecto</>}
+      description="Las tres categorías comparten los mismos cinco criterios y las mismas ponderaciones. Lo que cambia es la evidencia exigida según la etapa en que se encuentre tu emprendimiento o proyecto. Por eso, una idea temprana bien formulada puede superar a un emprendimiento en operación con un desempeño débil."
     >
       <div className="grid gap-6 lg:grid-cols-3">
         {CATEGORIAS.map((c, i) => (
@@ -22,7 +22,7 @@ export function CategoriasSection() {
       </div>
 
       <p className="mt-8 text-[13px] text-brand-ink-muted">
-        Todos los proyectos se puntúan en una escala común de 0 a 100 y conforman un ranking único,
+        Todos los emprendimientos o proyectos se puntúan en una escala común de 0 a 100 y conforman un ranking único,
         del que salen el primer, segundo y tercer lugar. El puntaje mínimo para ser finalista es 60.
       </p>
     </Section>

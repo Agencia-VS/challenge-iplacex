@@ -17,7 +17,6 @@ const MAX_PALABRAS_RESUMEN = 200;
 
 const CALIDADES: { value: Calidad; label: string }[] = [
   { value: "estudiante", label: "Estudiante" },
-  { value: "egresado", label: "Egresado" },
   { value: "titulado", label: "Titulado" },
   { value: "externo", label: "Externo" },
 ];
@@ -147,7 +146,7 @@ export function PostularForm({ proyectoId, initial = {} }: PostularFormProps) {
         <h2 className="brand-display mt-1 text-[22px] text-brand-primary">Elige tu categoría</h2>
         <p className="mt-1 text-[13px] text-brand-ink-muted">
           Las tres comparten criterios y ponderaciones; lo que cambia es la evidencia que se te
-          exige. Elige según la etapa en que está tu proyecto, no según lo ambicioso que sea.
+          exige. Elige según la etapa en que se encuentre tu emprendimiento o proyecto, no según su nivel de ambición.
         </p>
         <div className="mt-5 grid gap-3 lg:grid-cols-3">
           {CATEGORIAS.map((c) => (
@@ -161,13 +160,13 @@ export function PostularForm({ proyectoId, initial = {} }: PostularFormProps) {
         </div>
       </Card>
 
-      {/* ── 2. El proyecto ─────────────────────────────────────────────── */}
+      {/* ── 2. El emprendimiento o proyecto ───────────────────────────── */}
       <Card className="p-7">
         <p className="brand-eyebrow">Paso 2</p>
-        <h2 className="brand-display mt-1 text-[22px] text-brand-primary">Tu proyecto</h2>
+        <h2 className="brand-display mt-1 text-[22px] text-brand-primary">Tu emprendimiento o proyecto</h2>
 
         <div className="mt-5 space-y-5">
-          <FormGroup label="Nombre del proyecto" required>
+          <FormGroup label="Nombre del emprendimiento o proyecto" required>
             <Input
               value={nombreProyecto}
               onChange={(e) => setNombreProyecto(e.target.value)}
@@ -229,7 +228,7 @@ export function PostularForm({ proyectoId, initial = {} }: PostularFormProps) {
           Objetivos de Desarrollo Sostenible
         </h2>
         <p className="mt-1 text-[13px] text-brand-ink-muted">
-          Marca los ODS con que tu proyecto se vincula. El criterio de impacto evalúa que ese
+          Marca los ODS con los que se vincula tu emprendimiento o proyecto. El criterio de impacto evalúa que ese
           vínculo esté fundado, así que elige solo los que puedas sostener.
         </p>
         <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -279,7 +278,7 @@ export function PostularForm({ proyectoId, initial = {} }: PostularFormProps) {
         <p className="mt-1 text-[13px] text-brand-ink-muted">
           Hasta {MAX_INTEGRANTES} integrantes, de los cuales a lo más {MAX_EXTERNOS} pueden ser
           externos. El representante debe ser de Iplacex y es la única contraparte oficial. Nadie
-          puede figurar en dos proyectos.
+          puede figurar en dos emprendimientos o proyectos.
         </p>
 
         <div className="mt-5">
@@ -338,7 +337,7 @@ export function PostularForm({ proyectoId, initial = {} }: PostularFormProps) {
             className="mt-0.5 h-4 w-4 shrink-0 accent-brand-accent"
           />
           <span className="text-[13px] leading-relaxed text-brand-ink-soft">
-            Declaro que el proyecto es de autoría propia del equipo y que acepto las Bases del
+            Declaro que el emprendimiento o proyecto es de autoría propia del equipo y que acepto las Bases del
             Concurso, incluidas las causales de inadmisibilidad y el control de similitud.
           </span>
         </label>

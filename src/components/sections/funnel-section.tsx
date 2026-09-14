@@ -60,8 +60,8 @@ export async function FunnelSection() {
       id="funnel"
       eyebrow="2 meses · 6 hitos"
       eyebrowTone="secondary"
-      title="El funnel completo de la convocatoria"
-      description="De la postulación al Demo Day. Cada etapa filtra, forma y prepara a los proyectos finalistas."
+      title="Cronograma de la convocatoria"
+      description="Desde la postulación hasta el Demo Day. Cada etapa selecciona, forma y prepara a los emprendimientos o proyectos finalistas."
     >
       <Card className="overflow-hidden p-2">
         <ol className="divide-y divide-brand-line">

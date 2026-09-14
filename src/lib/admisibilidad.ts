@@ -16,7 +16,7 @@ export const EDAD_MINIMA = 18;
 export const SIMILITUD_MAXIMA = 30;
 
 /** Vínculo del integrante con Iplacex. */
-export type Calidad = "estudiante" | "egresado" | "titulado" | "externo";
+export type Calidad = "estudiante" | "egresado" | "titulado" | "externo"; // "egresado" se conserva solo para registros históricos.
 
 export type Integrante = {
   rut: string;
@@ -32,7 +32,7 @@ export type Integrante = {
    * quede constancia de qué afirmó y cuándo.
    */
   declaraMayorDeEdad: boolean;
-  /** Solo aplica a estudiantes; egresados y titulados no tienen restricción. */
+  /** Solo aplica a estudiantes; los titulados no tienen restricción. */
   declaraMatriculaVigente?: boolean | null;
   esRepresentante: boolean;
 };
@@ -141,10 +141,10 @@ export function validarAdmisibilidad(
     });
   }
   for (const r of representantes) {
-    if (r.calidad === "externo") {
+    if (r.calidad === "externo" || r.calidad === "egresado") {
       problemas.push({
         codigo: "representante_externo",
-        mensaje: "El representante debe ser estudiante, egresado o titulado de Iplacex.",
+        mensaje: "El representante debe ser estudiante o titulado de Iplacex.",
         rut: r.rut,
       });
     }
@@ -207,7 +207,7 @@ export function validarAdmisibilidad(
       });
     }
 
-    // La matrícula vigente solo se exige a estudiantes: egresados y titulados
+    // La matrícula vigente solo se exige a estudiantes; los titulados
     // no tienen restricción de año.
     if (i.calidad === "estudiante" && i.declaraMatriculaVigente !== true) {
       problemas.push({
@@ -234,5 +234,5 @@ export function esAdmisible(
  * con ellos; la restricción aplica al momento de pagar.
  */
 export function integrantesQuePuedenCobrar(integrantes: Integrante[]): Integrante[] {
-  return integrantes.filter((i) => i.calidad !== "externo");
+  return integrantes.filter((i) => i.calidad === "estudiante" || i.calidad === "titulado");
 }

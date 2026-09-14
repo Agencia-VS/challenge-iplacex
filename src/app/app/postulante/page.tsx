@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { roleHomePath } from "@/lib/roles";
 import { ESTADO_BADGE_DEFAULT, type EstadoBadgeTone } from "@/lib/estados";
+import { nombreEtapa } from "@/lib/site";
 
 export const metadata: Metadata = { title: "Mi proceso" };
 export const dynamic = "force-dynamic";
@@ -142,7 +143,7 @@ export default async function PostulanteDashboard() {
           label="Etapa actual"
           value={etapaActiva ? String(etapaActiva.numero).padStart(2, "0") : "—"}
           tone="accent"
-          detail={etapaActiva?.nombre ?? "Sin etapa activa"}
+          detail={etapaActiva ? nombreEtapa(etapaActiva.numero, etapaActiva.nombre) : "Sin etapa activa"}
         />
         <Stat
           label="Cápsulas"
@@ -211,7 +212,7 @@ export default async function PostulanteDashboard() {
 
         {/* Timeline */}
         <Card variant="neutral" className="flex flex-col gap-4 p-6">
-          <p className="brand-eyebrow">Timeline</p>
+          <p className="brand-eyebrow">Cronograma</p>
           {etapasDB && etapasDB.length > 0 ? (
             <ul className="space-y-4">
               {etapasDB.slice(0, 4).map((e, i) => {
@@ -236,7 +237,7 @@ export default async function PostulanteDashboard() {
                       {i < 3 && <div className="mt-1 h-6 w-px bg-brand-line" />}
                     </div>
                     <div className="pb-1">
-                      <p className="text-[12px] font-semibold text-brand-ink leading-tight">{e.nombre}</p>
+                      <p className="text-[12px] font-semibold text-brand-ink leading-tight">{nombreEtapa(e.numero, e.nombre)}</p>
                       <p className="mt-0.5 text-[11px] text-brand-ink-muted">
                         {e.semana_inicio && e.semana_fin
                           ? `Sem ${e.semana_inicio}–${e.semana_fin}`
