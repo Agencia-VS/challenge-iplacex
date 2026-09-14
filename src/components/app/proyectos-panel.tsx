@@ -677,7 +677,7 @@ export function ProyectosPanel({
                             {/* Cambiar estado */}
                             <div className="min-w-0">
                               <p className="brand-eyebrow mb-3 text-brand-ink-soft">
-                                Avanzar en el funnel
+                                Avanzar en el cronograma
                               </p>
                               {siguientes.length === 0 ? (
                                 <p className="text-[12px] text-brand-ink-muted">
