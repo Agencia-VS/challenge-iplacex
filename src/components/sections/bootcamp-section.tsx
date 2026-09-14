@@ -50,7 +50,7 @@ export async function BootcampSection() {
       eyebrow="Formación"
       eyebrowTone="secondary"
       title="Bootcamp y mentorías"
-      description={`Los proyectos preseleccionados entran a un bootcamp con acompañamiento. Las Bases exigen asistir al menos al ${ASISTENCIA_MINIMA}% de las sesiones para seguir en carrera.`}
+      description={`Los emprendimientos o proyectos preseleccionados ingresan a un bootcamp con acompañamiento. Las Bases exigen asistir al menos al ${ASISTENCIA_MINIMA}% de las sesiones para continuar en el proceso.`}
     >
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {sesiones.map((s) => (
