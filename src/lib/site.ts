@@ -68,7 +68,7 @@ const MESES_CORTOS = [
 ];
 
 // Día y mes en UTC. Consistente con el resto de la app (Vercel corre en UTC) y
-// determinista, sin saltos de día por conversión de zona. Las fechas del funnel
+// determinista, sin saltos de día por conversión de zona. Las fechas del cronograma
 // se guardan a mediodía UTC para que el día calendario no dependa del offset.
 function partesFecha(iso: string): { dia: number; mes: number } {
   const d = new Date(iso);
@@ -119,7 +119,7 @@ export function formatPlazo(
   return "";
 }
 
-/** Estado del funnel calculado contra la fecha actual. */
+/** Estado del cronograma calculado contra la fecha actual. */
 export function estadoEtapa(
   inicio: string | null,
   fin: string | null,
@@ -133,12 +133,12 @@ export function estadoEtapa(
   return "upcoming";
 }
 
-/** Convierte una fila de la DB al modelo `Etapa` que consume el funnel. */
+/** Convierte una fila de la DB al modelo `Etapa` que consume el cronograma. */
 export function mapEtapaDB(e: EtapaDB, now: Date): Etapa {
   const estado = estadoEtapa(e.fecha_inicio, e.fecha_fin, now);
   return {
     numero: e.numero,
-    nombre: e.nombre,
+    nombre: e.numero === 1 ? "Lanzamiento y período de postulaciones" : e.nombre,
     descripcion: e.descripcion ?? "",
     plazo: formatPlazo(e.tipo, e.fecha_inicio, e.fecha_fin, e.semana_inicio),
     estado,
@@ -151,11 +151,11 @@ export function mapEtapaDB(e: EtapaDB, now: Date): Etapa {
 // el derecho de mover las fechas, así que la fuente real es la base de datos:
 // esto es solo el valor por omisión.
 export const etapas: Etapa[] = [
-  { numero: 1, nombre: "Lanzamiento y apertura", descripcion: "Se abren las postulaciones en la plataforma, único canal válido.", plazo: "14 sep", estado: "upcoming" },
+  { numero: 1, nombre: "Lanzamiento y período de postulaciones", descripcion: "Se abre el período de postulaciones en la plataforma, único canal válido.", plazo: "14 sep", estado: "upcoming" },
   { numero: 2, nombre: "Cierre de postulaciones", descripcion: "La plataforma cierra automáticamente a las 23:59.", plazo: "2 oct", estado: "upcoming", badge: "23:59" },
   { numero: 3, nombre: "Preselección", descripcion: "El Comité Técnico revisa admisibilidad y evalúa sin pitch: corren cuatro criterios y el puntaje se normaliza.", plazo: "9 oct", estado: "upcoming", badge: "Sin pitch" },
   { numero: 4, nombre: "Bootcamp y mentorías", descripcion: "Formación y acompañamiento. Exige asistir al menos al 75% de las sesiones.", plazo: "12 oct – 6 nov", estado: "upcoming", badge: "75% mínimo" },
-  { numero: 5, nombre: "Notificación de finalistas", descripcion: "Se publican los diez proyectos que llegan al Demo Day.", plazo: "6 nov", estado: "upcoming", badge: "Top 10" },
+  { numero: 5, nombre: "Notificación de finalistas", descripcion: "Se publican los diez emprendimientos o proyectos que llegan al Demo Day.", plazo: "6 nov", estado: "upcoming", badge: "Top 10" },
   { numero: 6, nombre: "Demo Day y premiación", descripcion: "Pitch ante el jurado de siete integrantes y entrega de premios.", plazo: "12 nov", estado: "upcoming", badge: "Final" },
 ];
 
@@ -186,14 +186,14 @@ export const sesionesBootcamp: SesionBootcamp[] = [
   { numero: 1, titulo: "Define tu problema", resumen: "Cómo delimitar un problema y su segmento de usuarios.", duracion: "12 min" },
   { numero: 2, titulo: "Propuesta de valor", resumen: "Diferenciación frente a las alternativas existentes.", duracion: "14 min" },
   { numero: 3, titulo: "Viabilidad", resumen: "Modelo de negocio, recursos y ruta de validación.", duracion: "15 min" },
-  { numero: 4, titulo: "Impacto y ODS", resumen: "Cómo vincular el proyecto con los ODS e indicarlo con indicadores.", duracion: "11 min" },
+  { numero: 4, titulo: "Impacto y ODS", resumen: "Cómo vincular el emprendimiento o proyecto con los ODS mediante indicadores.", duracion: "11 min" },
   { numero: 5, titulo: "Pitch", resumen: "Estructura y persuasión para el Demo Day.", duracion: "10 min" },
 ];
 
 export const faqs = [
-  { q: "¿Quiénes pueden postular?", a: "Estudiantes con matrícula vigente, egresados y titulados de Iplacex, mayores de 18 años. El representante del equipo debe ser de Iplacex. Se admiten hasta dos integrantes externos, que no pueden recibir el premio en dinero." },
-  { q: "¿Cuántos integrantes puede tener el equipo?", a: "Hasta cinco. Cada persona puede participar en un solo proyecto: figurar en dos es causal de inadmisibilidad." },
-  { q: "¿Cómo elijo mi categoría?", a: "Según la etapa en que esté tu proyecto: idea temprana sin ventas, emprendimiento en implementación que acredite ventas o clientes, o intraemprendimiento e innovación social con una organización o territorio identificado. El Comité Técnico puede reclasificarla y te notifica por correo." },
+  { q: "¿Quiénes pueden postular?", a: "Estudiantes con matrícula vigente y titulados de Iplacex, mayores de 18 años. El representante del equipo debe pertenecer a Iplacex. Se admiten hasta dos integrantes externos, quienes no pueden recibir el premio en dinero." },
+  { q: "¿Cuántos integrantes puede tener el equipo?", a: "Hasta cinco. Cada persona puede participar en un solo emprendimiento o proyecto; figurar en dos es causal de inadmisibilidad." },
+  { q: "¿Cómo elijo mi categoría?", a: "Según la etapa en que se encuentre tu emprendimiento o proyecto: idea temprana sin ventas, emprendimiento en implementación que acredite ventas o clientes, o intraemprendimiento e innovación social con una organización o territorio identificado. El Comité Técnico puede reclasificar la postulación y te notificará por correo." },
   { q: "¿Cómo se evalúa?", a: "Con cinco criterios de ponderación fija —problema 20%, propuesta de valor 25%, viabilidad 25%, impacto 15% y comunicación 15%— en una escala de cuatro niveles. El puntaje va de 0 a 100 y el mínimo para ser finalista es 60. En la preselección no hay pitch, así que corren solo los cuatro primeros criterios y el resultado se normaliza." },
   { q: "¿Las categorías compiten entre sí?", a: "Sí: hay un ranking único y los premios no se reparten por categoría. Aun así, los dos mejores de cada categoría tienen cupo asegurado en el Demo Day; los otros cuatro cupos salen del ranking general." },
   { q: "¿La postulación tiene costo?", a: "No. Postular es gratuito, y la plataforma es el único canal válido: no se aceptan postulaciones por correo ni por ningún otro medio." },
