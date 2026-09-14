@@ -31,9 +31,9 @@ INSERT INTO public.categorias (convocatoria_id, numero, nombre, slug, alcance)
 SELECT c.id, v.numero, v.nombre, v.slug, v.alcance
 FROM public.convocatorias c
 CROSS JOIN (VALUES
-  (1, 'Idea en etapa temprana (pre-negocio)', 'idea-temprana', 'Proyectos que aún no inician operaciones comerciales y se encuentran en fase de conceptualización, prototipado o validación exploratoria. No se espera evidencia de ventas ni de operación; se evalúa la calidad de la formulación, el sustento exploratorio y la conciencia sobre lo que resta validar.'),
-  (2, 'Emprendimiento en etapa de implementación', 'implementacion', 'Proyectos en operación, con evidencia verificable de validación de mercado. Se evalúa la solidez de la evidencia real disponible, la tracción demostrada y la consistencia entre las métricas presentadas y la viabilidad declarada.'),
-  (3, 'Intraemprendimiento / Innovación social', 'intraemprendimiento', 'Proyectos que introducen una mejora al interior de una organización existente, o que abordan una problemática social, comunitaria o ambiental. El eje es la pertinencia respecto del contexto declarado: la factibilidad se juzga según las condiciones reales de esa organización o comunidad, y el impacto según los beneficiarios identificados.')
+  (1, 'Idea en etapa temprana (pre-negocio)', 'idea-temprana', 'Emprendimientos o proyectos que aún no inician operaciones comerciales y se encuentran en fase de conceptualización, prototipado o validación exploratoria. No se espera evidencia de ventas ni de operación; se evalúa la calidad de la formulación, el sustento exploratorio y la conciencia sobre lo que resta validar.'),
+  (2, 'Emprendimiento en etapa de implementación', 'implementacion', 'Emprendimientos o proyectos en operación, con evidencia verificable de validación de mercado. Se evalúa la solidez de la evidencia real disponible, la tracción demostrada y la consistencia entre las métricas presentadas y la viabilidad declarada.'),
+  (3, 'Intraemprendimiento / Innovación social', 'intraemprendimiento', 'Emprendimientos o proyectos que introducen una mejora al interior de una organización existente o que abordan una problemática social, comunitaria o ambiental. El eje es la pertinencia respecto del contexto declarado: la factibilidad se juzga según las condiciones reales de esa organización o comunidad, y el impacto según los beneficiarios identificados.')
 ) AS v(numero, nombre, slug, alcance)
 WHERE c.ano = 2026
 ON CONFLICT (convocatoria_id, numero) DO UPDATE
@@ -60,7 +60,7 @@ ON CONFLICT (convocatoria_id, slug) DO UPDATE
 
 -- 4. Etapas del proceso
 -- El bootcamp representa la semifinal operativa: durante esta etapa los
--- proyectos entregan los antecedentes solicitados y se define quiénes pasan
+-- los emprendimientos o proyectos entregan los antecedentes solicitados y se define quiénes pasan
 -- al Demo Day. No se crea una etapa pública adicional llamada "semifinal".
 INSERT INTO public.etapas (
   convocatoria_id, numero, tipo, nombre, descripcion,
@@ -82,8 +82,8 @@ CROSS JOIN (VALUES
   (
     1,
     'postulacion',
-    'Lanzamiento y apertura',
-    'Se inicia la recepción de proyectos mediante la plataforma.',
+    'Lanzamiento y período de postulaciones',
+    'Se inicia la recepción de emprendimientos o proyectos mediante la plataforma.',
     '2026-09-14 12:00:00+00',
     '2026-09-14 12:00:00+00',
     1,
@@ -94,7 +94,7 @@ CROSS JOIN (VALUES
     2,
     'postulacion',
     'Cierre de postulaciones',
-    'Finaliza la recepción de proyectos y comienza la revisión de admisibilidad.',
+    'Finaliza la recepción de emprendimientos o proyectos y comienza la revisión de admisibilidad.',
     '2026-10-02 00:00:00+00',
     '2026-10-02 23:59:00+00',
     1,
@@ -105,7 +105,7 @@ CROSS JOIN (VALUES
     3,
     'preseleccion',
     'Preselección',
-    'El Comité Técnico evalúa los proyectos y selecciona los que pasan al bootcamp.',
+    'El Comité Técnico evalúa los emprendimientos o proyectos y selecciona los que pasan al bootcamp.',
     '2026-10-03 00:00:00+00',
     '2026-10-09 23:59:00+00',
     7,
@@ -116,7 +116,7 @@ CROSS JOIN (VALUES
     4,
     'bootcamp',
     'Bootcamp y mentorías',
-    'Los proyectos preseleccionados participan en el bootcamp y cargan los archivos solicitados durante esta etapa.',
+    'Los emprendimientos o proyectos preseleccionados participan en el bootcamp y cargan los archivos solicitados durante esta etapa.',
     '2026-10-12 00:00:00+00',
     '2026-11-06 23:59:00+00',
     26,
@@ -127,7 +127,7 @@ CROSS JOIN (VALUES
     5,
     'seleccion_finalistas',
     'Selección de finalistas',
-    'Se seleccionan los proyectos que presentarán su propuesta en el Demo Day.',
+    'Se seleccionan los emprendimientos o proyectos que presentarán su propuesta en el Demo Day.',
     '2026-11-06 00:00:00+00',
     '2026-11-06 23:59:00+00',
     1,
@@ -138,7 +138,7 @@ CROSS JOIN (VALUES
     6,
     'demo_day',
     'Demo Day y premiación',
-    'Instancia presencial y en vivo en la que el jurado selecciona el proyecto ganador.',
+    'Instancia presencial y en vivo en la que el jurado selecciona el emprendimiento o proyecto ganador.',
     '2026-11-12 00:00:00+00',
     '2026-11-12 23:59:00+00',
     1,
