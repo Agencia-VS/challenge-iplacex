@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { PostularForm } from "@/components/app/postular-form";
 import type { IntegranteForm } from "@/components/app/postular-form";
 
-export const metadata: Metadata = { title: "Postular proyecto" };
+export const metadata: Metadata = { title: "Postular emprendimiento o proyecto" };
 
 type IntegranteDB = {
   rut: string;
@@ -97,7 +97,7 @@ export default async function PostularPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-8 pb-20">
       <header>
-        <p className="brand-eyebrow text-brand-accent">Postular proyecto</p>
+        <p className="brand-eyebrow text-brand-accent">Postular emprendimiento o proyecto</p>
         <h1 className="brand-display mt-1.5 text-[36px] leading-tight text-brand-primary md:text-[44px]">
           Tu One Pager
         </h1>
