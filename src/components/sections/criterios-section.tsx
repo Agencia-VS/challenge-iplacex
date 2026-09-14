@@ -8,8 +8,8 @@ export function CriteriosSection() {
       id="criterios"
       eyebrow="Evaluación ciega · 2 evaluadores"
       eyebrowTone="primary"
-      title="Cómo se evalúa cada proyecto"
-      description="Cinco criterios ponderados. Tu proyecto no muestra equipo ni nombre del postulante hasta el Demo Day."
+      title="Cómo se evalúa cada emprendimiento o proyecto"
+      description="Cinco criterios ponderados. Tu emprendimiento o proyecto no muestra el equipo ni el nombre del postulante hasta el Demo Day."
     >
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {criterios.map((c, i) => (
