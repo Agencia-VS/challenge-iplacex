@@ -133,13 +133,21 @@ export function estadoEtapa(
   return "upcoming";
 }
 
+function normalizarReferenciaProyecto(texto: string): string {
+  return texto
+    .replace(/\bProyectos\b/g, "Emprendimientos o proyectos")
+    .replace(/\bproyectos\b/g, "emprendimientos o proyectos")
+    .replace(/\bProyecto\b/g, "Emprendimiento o proyecto")
+    .replace(/\bproyecto\b/g, "emprendimiento o proyecto");
+}
+
 /** Convierte una fila de la DB al modelo `Etapa` que consume el cronograma. */
 export function mapEtapaDB(e: EtapaDB, now: Date): Etapa {
   const estado = estadoEtapa(e.fecha_inicio, e.fecha_fin, now);
   return {
     numero: e.numero,
     nombre: e.numero === 1 ? "Lanzamiento y período de postulaciones" : e.nombre,
-    descripcion: e.descripcion ?? "",
+    descripcion: normalizarReferenciaProyecto(e.descripcion ?? ""),
     plazo: formatPlazo(e.tipo, e.fecha_inicio, e.fecha_fin, e.semana_inicio),
     estado,
     badge: BADGE_POR_TIPO[e.tipo] ?? (estado === "active" ? "En curso" : undefined),
