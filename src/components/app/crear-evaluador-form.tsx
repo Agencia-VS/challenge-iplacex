@@ -10,9 +10,21 @@ import { crearEvaluador } from "@/app/actions/evaluadores";
 import { BRAND } from "@/lib/brand";
 
 const ROLES = [
-  { value: "jurado", label: "Jurado Evaluador", desc: "Evalúa los proyectos del Demo Day" },
-  { value: "comite_tecnico", label: "Comité Técnico", desc: "Admisibilidad, preselección y reclasificación de categoría" },
-  { value: "admin", label: "Admin", desc: "Acceso completo al panel" },
+  {
+    value: "comite_tecnico",
+    label: "Comité Técnico",
+    desc: "Revisa la admisibilidad y evalúa la preselección escrita, sin pitch.",
+  },
+  {
+    value: "jurado",
+    label: "Jurado Evaluador",
+    desc: "Evalúa a los finalistas y su pitch durante el Demo Day.",
+  },
+  {
+    value: "admin",
+    label: "Comité Organizador (admin)",
+    desc: "Gestiona la convocatoria, los usuarios, las asignaciones, las etapas y los resultados.",
+  },
 ] as const;
 
 type Rol = (typeof ROLES)[number]["value"];
@@ -101,6 +113,33 @@ export function CrearEvaluadorForm({ onSuccess }: { onSuccess: () => void }) {
           <label className="brand-eyebrow text-brand-ink-soft">
             Rol <span className="text-brand-accent">*</span>
           </label>
+          <div
+            role="note"
+            aria-label="Ayuda para elegir el rol"
+            className="rounded-[var(--r-sm)] border border-brand-secondary/25 bg-brand-secondary-soft/40 px-3.5 py-3"
+          >
+            <p className="text-[12px] font-semibold text-brand-primary">
+              ¿Qué rol corresponde?
+            </p>
+            <ul className="mt-2 space-y-1.5 text-[11px] leading-relaxed text-brand-ink-soft">
+              <li>
+                <strong>Comité Técnico:</strong> participa en la primera evaluación y revisa
+                las respuestas escritas y la admisibilidad.
+              </li>
+              <li>
+                <strong>Jurado Evaluador:</strong> evalúa a los finalistas y sus presentaciones
+                en el Demo Day.
+              </li>
+              <li>
+                <strong>Comité Organizador:</strong> administra la plataforma; no corresponde
+                a una cuenta evaluadora.
+              </li>
+            </ul>
+            <p className="mt-2 border-t border-brand-secondary/15 pt-2 text-[10px] text-brand-ink-muted">
+              Después de crear una cuenta evaluadora, asígnale sus emprendimientos o proyectos
+              desde la sección «Proyectos».
+            </p>
+          </div>
           <div className="space-y-2">
             {ROLES.map((r) => (
               <label
