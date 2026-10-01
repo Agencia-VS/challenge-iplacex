@@ -105,17 +105,44 @@ Verificación antes de un push:
 ```bash
 npm run build   # incluye chequeo de TypeScript
 npm run lint
+npm run test:perfil # validación, sesión, persistencia y concurrencia de perfiles
 ```
 
 ## Base de datos
 
 ```bash
 psql "$DATABASE_URL" -f drizzle/supabase-setup.sql
+psql "$DATABASE_URL" -f drizzle/migration-condicion-academica.sql
 psql "$DATABASE_URL" -f drizzle/seed-challenge-iplacex-2026.sql
 ```
 
 El seed es idempotente y verifica que las ponderaciones sumen 100; falla en
 voz alta si no.
+
+### Actualización: condición académica y Mi perfil
+
+Para una base existente, ejecutar **solo** `drizzle/migration-condicion-academica.sql`
+en el SQL Editor de Supabase **antes de desplegar este cambio**. No desactivar RLS
+ni volver a ejecutar el setup o el seed. No requiere variables nuevas.
+
+`usuarios.condicion_academica` admite `titulado` o `estudiante`. Los perfiles sin
+respuesta quedan en NULL y ven un aviso obligatorio, sin X ni cierre por Escape
+o fondo. Aplica a todos los roles y también a sesiones existentes: al cargar la
+versión nueva, navegar, volver a la pestaña o recuperar conexión se comprueba el
+perfil. Una página que ya estaba abierta con el código anterior al despliegue
+necesita recargarse para recibir la funcionalidad nueva.
+
+La selección es única y no tiene valor preseleccionado. Solo un guardado
+confirmado cierra el aviso; los errores permiten reintentar. La respuesta se
+conserva en la base entre sesiones y dispositivos. Dos pestañas concurrentes
+conservan la primera respuesta; la API autenticada no puede borrarla ni cambiarla.
+«Mi perfil» está disponible para todos los roles en el menú de escritorio/móvil,
+con nombre, correo, rol, condición académica, verificación y fecha de registro.
+
+Verificación funcional: probar un usuario sin respuesta (también con sesión
+abierta), ambos valores, recarga/reingreso sin repetir aviso, fallo de guardado,
+Escape/clic exterior, navegación con teclado y pantalla móvil. Abrir dos pestañas
+antes de responder y verificar que se conserva la primera respuesta.
 
 ## Pendiente
 
