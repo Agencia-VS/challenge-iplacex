@@ -10,9 +10,11 @@ import {
   jsonb,
   uuid,
   real,
+  check,
 
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
+import type { CondicionAcademica } from "@/lib/perfil";
 
 // ─── ENUMS ──────────────────────────────────────────────────────────────────
 
@@ -175,10 +177,14 @@ export const usuarios = pgTable("usuarios", {
   email: varchar("email", { length: 200 }).notNull().unique(),
   nombre: varchar("nombre", { length: 200 }).notNull(),
   avatarUrl: text("avatar_url"),
+  // NULL = pendiente de responder; no asignar una condición por defecto.
+  condicionAcademica: varchar("condicion_academica", { length: 20 }).$type<CondicionAcademica>(),
   rol: rolEnum("rol").default("postulante").notNull(),
   emailVerified: timestamp("email_verified"),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  check("usuarios_condicion_academica_check", sql`${table.condicionAcademica} IN ('titulado', 'estudiante')`),
+]);
 
 // ─── PROYECTOS ────────────────────────────────────────────────────────────────
 

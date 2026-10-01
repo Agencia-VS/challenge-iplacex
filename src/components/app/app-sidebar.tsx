@@ -13,6 +13,7 @@ import {
   Star,
   Settings,
   Users,
+  UserRound,
   CalendarRange,
   FolderKanban,
   LogOut,
@@ -159,7 +160,10 @@ function SidebarContent({
   onClose?: () => void;
 }) {
   const router = useRouter();
-  const groups = NAV_CONFIG[rol] ?? NAV_CONFIG.postulante;
+  const groups: NavGroup[] = [
+    ...(NAV_CONFIG[rol] ?? NAV_CONFIG.postulante),
+    { section: "Mi cuenta", items: [{ href: "/app/perfil", label: "Mi perfil", icon: UserRound }] },
+  ];
   const rolMeta = ROLE_LABEL[rol];
 
   async function handleLogout() {

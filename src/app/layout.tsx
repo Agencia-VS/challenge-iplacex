@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Montserrat, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { BRAND, PALETTE } from "@/lib/brand";
+import { CondicionAcademicaGate } from "@/components/auth/condicion-academica-gate";
 
 // Montserrat es el sustituto más cercano al wordmark del logotipo: geométrica,
 // de caja alta ancha y remates rectos.
@@ -57,6 +58,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         suppressHydrationWarning
       >
         {children}
+        <CondicionAcademicaGate />
       </body>
     </html>
   );
