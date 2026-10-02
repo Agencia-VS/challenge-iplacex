@@ -1,3 +1,4 @@
+import { EvaluadorTabla } from "@/components/app/evaluador-tabla";
 import type { Metadata } from "next";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
@@ -10,11 +11,14 @@ export const metadata: Metadata = { title: "Mis evaluaciones" };
 
 type EvalRow = {
   id: string;
+  asignacion_id: string;
+  etapa_id: number | null;
+  etapa: { nombre: string } | null;
   estado: string;
   puntaje_ponderado: number | null;
   updated_at: string;
   finalizada_at: string | null;
-  proyecto: { codigo_ciego: string; categorias: { nombre: string } | null } | null;
+  proyecto: { id: string; codigo_ciego: string; categorias: { nombre: string; numero: number } | null } | null;
 };
 
 export default async function MisEvaluacionesPage() {
@@ -37,8 +41,9 @@ export default async function MisEvaluacionesPage() {
   const { data: raw } = await supabase
     .from("evaluaciones")
     .select(`
-      id, estado, puntaje_ponderado, updated_at, finalizada_at,
-      proyecto:proyecto_id ( codigo_ciego, categorias ( nombre ) )
+      id, asignacion_id, etapa_id, estado, puntaje_ponderado, updated_at, finalizada_at,
+      etapa:etapa_id ( nombre ),
+      proyecto:proyecto_id ( id, codigo_ciego, categorias ( nombre, numero ) )
     `)
     .eq("evaluador_id", user.id)
     .order("updated_at", { ascending: false });
@@ -75,56 +80,13 @@ export default async function MisEvaluacionesPage() {
           </Button>
         </Card>
       ) : (
-        <Card className="overflow-hidden p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-[13px]">
-              <thead>
-                <tr className="border-b border-brand-line text-[11px] uppercase tracking-wider text-brand-ink-muted">
-                  <th className="px-6 py-3 font-semibold">Proyecto</th>
-                  <th className="px-6 py-3 font-semibold">Categoría</th>
-                  <th className="px-6 py-3 font-semibold">Puntaje</th>
-                  <th className="px-6 py-3 font-semibold">Estado</th>
-                  <th className="px-6 py-3 font-semibold">Fecha</th>
-                </tr>
-              </thead>
-              <tbody>
-                {evals.map(e => {
-                  const tone =
-                    e.estado === "finalizada" ? ("success" as const)
-                    : e.estado === "en_progreso" ? ("secondary" as const)
-                    : ("warning" as const);
-                  const label =
-                    e.estado === "finalizada" ? "Completada"
-                    : e.estado === "en_progreso" ? "En progreso"
-                    : "Pendiente";
-                  return (
-                    <tr key={e.id} className="border-b border-brand-line/60 hover:bg-brand-surface-soft">
-                      <td className="px-6 py-4 font-[family-name:var(--font-mono)] font-bold text-brand-secondary">
-                        {e.proyecto?.codigo_ciego ?? "—"}
-                      </td>
-                      <td className="px-6 py-4 text-brand-ink-soft">
-                        {(e.proyecto?.categorias as { nombre: string } | null)?.nombre ?? "—"}
-                      </td>
-                      <td className="px-6 py-4 font-bold text-brand-primary">
-                        {e.puntaje_ponderado != null ? e.puntaje_ponderado.toFixed(1) : "—"}
-                      </td>
-                      <td className="px-6 py-4">
-                        <Badge tone={tone}>{label}</Badge>
-                      </td>
-                      <td className="px-6 py-4 text-brand-ink-muted">
-                        {new Date(e.finalizada_at ?? e.updated_at).toLocaleDateString("es-CL", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+        <EvaluadorTabla filas={evals.map(e => ({
+          id: e.id, codigo: e.proyecto?.codigo_ciego ?? "—",
+          categoria: e.proyecto?.categorias?.nombre ?? null, categoriaNumero: e.proyecto?.categorias?.numero ?? null,
+          etapaId: e.etapa_id, etapa: e.etapa?.nombre ?? "Etapa sin nombre", estado: e.estado,
+          puntaje: e.puntaje_ponderado, fecha: e.finalizada_at ?? e.updated_at,
+          href: e.proyecto && e.asignacion_id ? `/app/evaluacion/proyectos/${e.proyecto.id}?asignacion=${encodeURIComponent(e.asignacion_id)}` : null,
+        }))} />
       )}
     </div>
   );

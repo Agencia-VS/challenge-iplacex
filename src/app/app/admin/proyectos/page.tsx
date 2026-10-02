@@ -29,8 +29,8 @@ export default async function AdminProyectosPage() {
   const { data: rawProyectos } = await supabase
     .from("proyectos")
     .select(`
-      id, codigo_ciego, nombre_proyecto, estado_postulacion, created_at, enviada_at,
-      categorias ( nombre ),
+      id, convocatoria_id, codigo_ciego, nombre_proyecto, estado_postulacion, created_at, enviada_at,
+      categorias ( nombre, numero ),
       postulante:postulante_id ( nombre, email ),
       asignaciones ( evaluador_id, etapa_id, estado ),
       evaluaciones ( etapa_id, puntaje_ponderado, estado )
@@ -61,6 +61,7 @@ export default async function AdminProyectosPage() {
     convocatoria_id: number;
   };
 
+  const ahora = new Date().getTime();
   const etapasEvaluacion: EtapaEvaluacionSimple[] = ((rawEtapas ?? []) as RawEtapa[]).map((item) => ({
     id: item.id,
     nombre: item.nombre ?? (item.tipo === "demo_day" ? "Demo day" : "Preselección"),
@@ -68,9 +69,9 @@ export default async function AdminProyectosPage() {
     fecha_inicio: item.fecha_inicio,
     fecha_fin: item.fecha_fin,
     convocatoria_id: item.convocatoria_id,
+    futura: Boolean(item.fecha_inicio && new Date(item.fecha_inicio).getTime() > ahora),
   }));
 
-  const ahora = Date.now();
   const etapa =
     etapasEvaluacion.find((item) => {
       const inicio = item.fecha_inicio ? new Date(item.fecha_inicio).getTime() : null;
@@ -107,7 +108,8 @@ export default async function AdminProyectosPage() {
     estado_postulacion: string;
     created_at: string;
     enviada_at: string | null;
-    categorias: { nombre: string } | null;
+    convocatoria_id: number;
+    categorias: { nombre: string; numero: number } | null;
     postulante: { nombre: string; email: string } | null;
     asignaciones: { evaluador_id: string; etapa_id: number; estado: string | null }[] | null;
     evaluaciones: { etapa_id: number | null; puntaje_ponderado: number | null; estado: string }[] | null;
@@ -115,6 +117,8 @@ export default async function AdminProyectosPage() {
 
   const proyectos: ProyectoPanelRow[] = ((rawProyectos ?? []) as unknown as RawProy[]).map(p => ({
     id: p.id,
+    convocatoria_id: p.convocatoria_id,
+    categoria_numero: p.categorias?.numero ?? null,
     codigo_ciego: p.codigo_ciego,
     nombre_proyecto: p.nombre_proyecto,
     estado_postulacion: p.estado_postulacion,
