@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createServerClient } from "@supabase/ssr";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { cookies } from "next/headers";
-import { roleHomePath } from "@/lib/roles";
+import { proyectoAsignable } from "@/lib/verticales";
 
 async function getCallerAdmin() {
   const cookieStore = await cookies();
@@ -22,6 +22,61 @@ async function getCallerAdmin() {
 }
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
+
+export async function asignarProyectosMasivamente(input: {
+  proyectoIds: string[]; evaluadorIds: string[]; etapaId: number;
+}): Promise<{ ok: true; creadas: number; existentes: number } | { ok: false; error: string }> {
+  const caller = await getCallerAdmin();
+  if (!caller) return { ok: false, error: "Solo un administrador puede asignar proyectos." };
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!input || !Array.isArray(input.proyectoIds) || !Array.isArray(input.evaluadorIds) ||
+      !Number.isSafeInteger(input.etapaId) || input.etapaId <= 0 ||
+      input.proyectoIds.length > 500 || input.evaluadorIds.length > 50 ||
+      [...input.proyectoIds, ...input.evaluadorIds].some(id => typeof id !== "string" || !uuid.test(id))) {
+    return { ok: false, error: "La selección de proyectos, evaluadores o etapa no es válida." };
+  }
+  const proyectoIds = [...new Set(input.proyectoIds)];
+  const evaluadorIds = [...new Set(input.evaluadorIds)];
+  const total = proyectoIds.length * evaluadorIds.length;
+  if (!total || total > 1000) {
+    return { ok: false, error: "Selecciona proyectos y evaluadores (máximo 1.000 asignaciones por envío)." };
+  }
+
+  const db = createAdminClient();
+  const [{ data: etapa, error: etapaError }, { data: proyectos, error: proyectosError }, { data: evaluadores, error: evaluadoresError }] = await Promise.all([
+    db.from("etapas").select("id, tipo, convocatoria_id").eq("id", input.etapaId).single(),
+    db.from("proyectos").select("id, convocatoria_id, estado_postulacion").in("id", proyectoIds),
+    db.from("usuarios").select("id, rol").in("id", evaluadorIds),
+  ]);
+  if (etapaError || proyectosError || evaluadoresError) {
+    return { ok: false, error: "No pudimos verificar la selección. No se realizaron asignaciones." };
+  }
+  if (!etapa || !["preseleccion", "bootcamp", "demo_day"].includes(etapa.tipo)) {
+    return { ok: false, error: "Selecciona una etapa de evaluación válida." };
+  }
+  if (proyectos?.length !== proyectoIds.length || proyectos.some(p =>
+    p.convocatoria_id !== etapa.convocatoria_id || !proyectoAsignable(p.estado_postulacion))) {
+    return { ok: false, error: "Hay proyectos no disponibles o de otra convocatoria. Actualiza la tabla y vuelve a seleccionarlos." };
+  }
+  if (evaluadores?.length !== evaluadorIds.length || evaluadores.some(e => !["jurado", "comite_tecnico"].includes(e.rol))) {
+    return { ok: false, error: "Hay usuarios que ya no son evaluadores. Actualiza la tabla antes de continuar." };
+  }
+
+  const filas = proyectoIds.flatMap(proyecto_id => evaluadorIds.map(evaluador_id => ({
+    proyecto_id, evaluador_id, etapa_id: etapa.id, asignado_por: caller.id, estado: "pendiente",
+  })));
+  // Una sola sentencia atómica. ON CONFLICT DO NOTHING preserva asignaciones
+  // y evaluaciones existentes, incluso ante reintentos o admins concurrentes.
+  const { data: nuevas, error } = await db.from("asignaciones")
+    .upsert(filas, { onConflict: "proyecto_id,evaluador_id,etapa_id", ignoreDuplicates: true })
+    .select("id");
+  if (error || !nuevas) return { ok: false, error: "No se pudo completar la asignación. Puedes reintentar sin duplicar asignaciones." };
+  revalidatePath("/app/admin/proyectos");
+  revalidatePath("/app/evaluacion");
+  revalidatePath("/app/evaluacion/proyectos");
+  revalidatePath("/app/evaluacion/mis-evaluaciones");
+  return { ok: true, creadas: nuevas.length, existentes: total - nuevas.length };
+}
 
 /**
  * Asigna (o desasigna) un evaluador a un proyecto en una etapa.

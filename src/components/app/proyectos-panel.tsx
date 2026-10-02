@@ -1,18 +1,21 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
-import { toggleAsignacion, cambiarEstadoPostulacion } from "@/app/actions/asignaciones";
+import { toggleAsignacion, cambiarEstadoPostulacion, asignarProyectosMasivamente } from "@/app/actions/asignaciones";
 import {
   ESTADO_BADGE_DEFAULT,
   TRANSICIONES_DEFAULT,
   type EstadoBadgeConfig,
   type TransicionEstado,
 } from "@/lib/estados";
+
+import { VerticalTabs } from "@/components/app/vertical-tabs";
+import { coincideVertical, normalizarBusqueda, proyectoAsignable } from "@/lib/verticales";
 
 export interface EvaluadorSimple {
   id: string;
@@ -28,6 +31,7 @@ export interface EtapaEvaluacionSimple {
   fecha_inicio: string | null;
   fecha_fin: string | null;
   convocatoria_id: number;
+  futura: boolean;
 }
 
 export interface AsignacionSimple {
@@ -43,6 +47,8 @@ export interface EvaluacionSimple {
 
 export interface ProyectoPanelRow {
   id: string;
+  convocatoria_id: number;
+  categoria_numero: number | null;
   codigo_ciego: string;
   nombre_proyecto: string | null;
   estado_postulacion: string;
@@ -118,12 +124,59 @@ export function ProyectosPanel({
   const [assignmentOverrides, setAssignmentOverrides] = useState<Record<string, boolean>>({});
   const [selectedEtapaId, setSelectedEtapaId] = useState<number | null>(etapaEvalId);
 
+  const [vertical, setVertical] = useState(0);
+  const [busqueda, setBusqueda] = useState("");
+  const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set());
+  const [evaluadoresSeleccionados, setEvaluadoresSeleccionados] = useState<Set<string>>(new Set());
+  const [asignando, setAsignando] = useState(false);
+  const enviando = useRef(false);
+  const ocupado = asignando || Object.keys(loadingKeys).length > 0;
+
   const etapaSeleccionada = etapasEvaluacion.find((item) => item.id === selectedEtapaId) ?? null;
   const activeEtapaId = etapaSeleccionada?.id ?? etapaEvalId;
   const activeEtapaNombre = etapaSeleccionada?.nombre ?? etapaNombre;
-  const activeEtapaFutura = etapaSeleccionada?.fecha_inicio
-    ? new Date(etapaSeleccionada.fecha_inicio).getTime() > Date.now()
-    : etapaFutura;
+  const activeEtapaFutura = etapaSeleccionada?.futura ?? etapaFutura;
+  const proyectosEtapa = etapaSeleccionada
+    ? proyectos.filter(p => p.convocatoria_id === etapaSeleccionada.convocatoria_id)
+    : proyectos;
+  const query = normalizarBusqueda(busqueda);
+  const visibles = proyectosEtapa.filter(p => coincideVertical(p.categoria_numero, vertical) &&
+    normalizarBusqueda([p.codigo_ciego, p.nombre_proyecto, p.postulante].filter(Boolean).join(" ")).includes(query));
+  const idsVisibles = new Set(visibles.map(p => p.id));
+  const asignables = visibles.filter(p => proyectoAsignable(p.estado_postulacion));
+  const todosSeleccionados = asignables.length > 0 && asignables.every(p => seleccionados.has(p.id));
+
+  function cambiarSeleccion(id: string) {
+    setSeleccionados(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  }
+
+  async function asignarSeleccion() {
+    if (enviando.current || ocupado || activeEtapaId === null || !seleccionados.size || !evaluadoresSeleccionados.size) return;
+    enviando.current = true;
+    setAsignando(true);
+    setError(null);
+    setSuccess(null);
+    const proyectoIds = [...seleccionados];
+    const evaluadorIds = [...evaluadoresSeleccionados];
+    try {
+      const result = await asignarProyectosMasivamente({ proyectoIds, evaluadorIds, etapaId: activeEtapaId });
+      if (!result.ok) { setError(result.error); return; }
+      setAssignmentOverrides(prev => {
+        const next = { ...prev };
+        for (const proyectoId of proyectoIds) for (const evaluadorId of evaluadorIds) next[[proyectoId, evaluadorId, activeEtapaId].join("-")] = true;
+        return next;
+      });
+      setSuccess(`${result.creadas} asignaciones creadas. ${result.existentes} ya existían y se conservaron.`);
+      setSeleccionados(new Set());
+      setEvaluadoresSeleccionados(new Set());
+      router.refresh();
+    } catch {
+      setError("No pudimos confirmar la asignación. Puedes reintentar sin duplicar asignaciones.");
+    } finally {
+      enviando.current = false;
+      setAsignando(false);
+    }
+  }
 
   async function handleToggle(proyectoId: string, evaluadorId: string) {
     if (activeEtapaId === null) return;
@@ -140,7 +193,8 @@ export function ProyectosPanel({
     setSuccess(null);
     setAssignmentOverrides((prev) => ({ ...prev, [key]: !currentAssigned }));
 
-    const res = await toggleAsignacion(proyectoId, evaluadorId, activeEtapaId);
+    const res = await toggleAsignacion(proyectoId, evaluadorId, activeEtapaId)
+      .catch(() => ({ ok: false as const, error: "No pudimos actualizar la asignación. Reintenta." }));
     setLoadingKeys((prev) => {
       const next = { ...prev };
       delete next[key];
@@ -171,14 +225,18 @@ export function ProyectosPanel({
     setLoadingKeys((prev) => ({ ...prev, [`estado-${proyectoId}`]: true }));
     setError(null);
     setSuccess(null);
-    const res = await cambiarEstadoPostulacion(proyectoId, estado);
+    const res = await cambiarEstadoPostulacion(proyectoId, estado)
+      .catch(() => ({ ok: false as const, error: "No pudimos actualizar el estado. Reintenta." }));
     setLoadingKeys((prev) => {
       const next = { ...prev };
       delete next[`estado-${proyectoId}`];
       return next;
     });
     if (!res.ok) setError(res.error);
-    else router.refresh();
+    else {
+      setSeleccionados(new Set());
+      router.refresh();
+    }
   }
 
   if (proyectos.length === 0) {
@@ -195,7 +253,7 @@ export function ProyectosPanel({
     );
   }
 
-  const enviados = proyectos.filter(p => p.estado_postulacion !== "borrador").length;
+  const enviados = proyectosEtapa.filter(p => p.estado_postulacion !== "borrador").length;
   const esperado = Math.max(1, evaluacionesEsperadas || 2);
   const esPreseleccion = etapaSeleccionada?.tipo === "preseleccion";
   const estadosExcluidos = new Set([
@@ -205,7 +263,7 @@ export function ProyectosPanel({
     "descalificado",
   ]);
 
-  const rankingBase = proyectos.map((p) => {
+  const rankingBase = proyectosEtapa.map((p) => {
     const scores = (p.evaluaciones ?? [])
       .filter((evaluacion) =>
         activeEtapaId !== null &&
@@ -277,7 +335,7 @@ export function ProyectosPanel({
   const rankingPorProyecto = new Map<string, RankingRow>(
     rankingRows.map((row) => [row.id, row] as const),
   );
-  const proyectosOrdenados = [...proyectos].sort((a, b) => {
+  const proyectosOrdenados = [...visibles].sort((a, b) => {
     const aRow = rankingPorProyecto.get(a.id);
     const bRow = rankingPorProyecto.get(b.id);
     if ((aRow?.puesto ?? Infinity) !== (bRow?.puesto ?? Infinity)) {
@@ -300,7 +358,7 @@ export function ProyectosPanel({
       "Dispersión",
       esPreseleccion ? "Resultado preselección" : "Resultado de etapa",
     ];
-    const filas = rankingRows.map((row) => [
+    const filas = rankingRows.filter(row => idsVisibles.has(row.id)).map((row) => [
       row.puesto ?? "",
       row.codigo,
       row.nombre,
@@ -351,10 +409,13 @@ export function ProyectosPanel({
             </p>
           </div>
           <select
+            disabled={ocupado}
             value={activeEtapaId ?? ""}
             onChange={(event) => {
               const nextId = event.target.value ? Number(event.target.value) : null;
               setSelectedEtapaId(nextId);
+              setSeleccionados(new Set());
+              setExpandedId(null);
               setError(null);
               setSuccess(null);
             }}
@@ -377,7 +438,7 @@ export function ProyectosPanel({
 
       <div className="flex flex-wrap items-center gap-2">
         <Badge tone="secondary">{enviados} enviados</Badge>
-        <Badge tone="neutral">{proyectos.length} total</Badge>
+        <Badge tone="neutral">{proyectosEtapa.length} total</Badge>
         {activeEtapaId !== null && activeEtapaFutura && (
           <Badge tone="accent">Asignando para: {activeEtapaNombre ?? "Próxima evaluación"}</Badge>
         )}
@@ -389,6 +450,14 @@ export function ProyectosPanel({
         )}
       </div>
 
+      <VerticalTabs value={vertical} onChange={value => { setVertical(value); setSeleccionados(new Set()); setExpandedId(null); }}
+        numeros={proyectosEtapa.map(p => p.categoria_numero)} disabled={ocupado} panelId="proyectos-por-vertical" />
+      <label className="block text-sm font-medium text-brand-ink-soft">
+        Buscar proyecto, código o postulante
+        <input type="search" value={busqueda} disabled={ocupado} onChange={event => { setBusqueda(event.target.value); setSeleccionados(new Set()); setExpandedId(null); }}
+          placeholder="Buscar en la vertical seleccionada" className="mt-2 block w-full rounded-lg border border-brand-line bg-brand-surface-raised px-4 py-3 text-brand-ink sm:max-w-md" />
+      </label>
+      <div id="proyectos-por-vertical" role="tabpanel" aria-label="Proyectos de la vertical seleccionada" className="space-y-4">
       {activeEtapaId !== null && (
         <Card className="min-w-0 overflow-hidden">
           <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -398,11 +467,11 @@ export function ProyectosPanel({
                 {esPreseleccion ? "Selección para el bootcamp" : activeEtapaNombre ?? "Evaluación"}
               </h2>
               <p className="mt-1 max-w-2xl text-[12px] text-brand-ink-muted">
-                Ordenado por el promedio de las evaluaciones finalizadas. Los proyectos descalificados o con evaluación incompleta no ocupan un puesto elegible.
+                Ranking general de la etapa, filtrado por la vertical y búsqueda seleccionadas. Los puestos y el cupo no se recalculan por vertical. Ordenado por el promedio de las evaluaciones finalizadas. Los proyectos descalificados o con evaluación incompleta no ocupan un puesto elegible.
               </p>
             </div>
             <Button type="button" variant="secondary" size="sm" onClick={exportarRanking}>
-              Exportar a Excel
+              Exportar vista a Excel
             </Button>
           </div>
 
@@ -440,7 +509,7 @@ export function ProyectosPanel({
                 </tr>
               </thead>
               <tbody>
-                {rankingRows.map((row) => (
+                {rankingRows.filter(row => idsVisibles.has(row.id)).map((row) => (
                   <tr
                     key={row.id}
                     className={cn(
@@ -477,10 +546,10 @@ export function ProyectosPanel({
                     </td>
                   </tr>
                 ))}
-                {!rankingRows.length && (
+                {!visibles.length && (
                   <tr>
                     <td colSpan={6} className="px-3 py-8 text-center text-[13px] text-brand-ink-muted">
-                      Aún no hay proyectos para ordenar.
+                      No hay proyectos que coincidan con los filtros.
                     </td>
                   </tr>
                 )}
@@ -490,11 +559,47 @@ export function ProyectosPanel({
         </Card>
       )}
 
+      <Card className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-brand-primary">Asignación masiva</h2>
+            <p className="mt-1 text-sm text-brand-ink-muted">Marca proyectos en la tabla y elige quiénes los evaluarán en {activeEtapaNombre ?? "la etapa seleccionada"}.</p>
+          </div>
+          <span role="status" className="text-sm font-semibold">{seleccionados.size} proyectos seleccionados</span>
+        </div>
+        <fieldset disabled={ocupado || activeEtapaId === null}>
+          <legend className="mb-2 text-sm font-medium text-brand-ink-soft">Evaluadores que recibirán todos los proyectos seleccionados</legend>
+          <div className="grid max-h-60 gap-2 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
+            {evaluadores.map(ev => <label key={ev.id} className="flex items-start gap-3 rounded-lg border border-brand-line p-3">
+              <input type="checkbox" className="mt-1 accent-brand-secondary" checked={evaluadoresSeleccionados.has(ev.id)}
+                onChange={() => setEvaluadoresSeleccionados(prev => { const next = new Set(prev); if (next.has(ev.id)) next.delete(ev.id); else next.add(ev.id); return next; })} />
+              <span className="min-w-0 text-sm"><span className="block font-semibold">{ev.nombre}</span><span className="block break-all text-xs text-brand-ink-muted">{ev.email}</span>
+                <span className="block text-xs text-brand-ink-muted">{ev.rol === "comite_tecnico" ? "Comité técnico" : "Jurado"}</span></span>
+            </label>)}
+            {!evaluadores.length && <p className="text-sm text-brand-ink-muted">No hay evaluadores registrados.</p>}
+          </div>
+        </fieldset>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button type="button" size="sm" onClick={asignarSeleccion}
+            disabled={ocupado || activeEtapaId === null || !seleccionados.size || !evaluadoresSeleccionados.size || seleccionados.size > 500 || evaluadoresSeleccionados.size > 50 || seleccionados.size * evaluadoresSeleccionados.size > 1000}>
+            {asignando ? "Asignando…" : `Asignar ${seleccionados.size} proyectos a ${evaluadoresSeleccionados.size} evaluadores`}
+          </Button>
+          <Button type="button" size="sm" variant="ghost" disabled={ocupado || !seleccionados.size} onClick={() => setSeleccionados(new Set())}>Limpiar selección</Button>
+        </div>
+        <p className="text-xs text-brand-ink-muted">{seleccionados.size * evaluadoresSeleccionados.size} asignaciones posibles (máximo 1.000 por envío, hasta 500 proyectos y 50 evaluadores). Las existentes se conservan. Solo se pueden seleccionar proyectos enviados y vigentes de esta convocatoria.</p>
+      </Card>
+
       <Card className="min-w-0 overflow-hidden p-0">
         <div className="min-w-0 overflow-x-auto overscroll-x-contain">
           <table className="min-w-[1100px] w-full text-left text-[13px]">
             <thead>
               <tr className="border-b border-brand-line text-[11px] uppercase tracking-wider text-brand-ink-muted">
+                <th className="px-4 py-3">
+                  <input type="checkbox" aria-label="Seleccionar todos los proyectos visibles y asignables" checked={todosSeleccionados}
+                    ref={element => { if (element) element.indeterminate = seleccionados.size > 0 && !todosSeleccionados; }}
+                    disabled={ocupado || activeEtapaId === null || !asignables.length}
+                    onChange={() => setSeleccionados(todosSeleccionados ? new Set() : new Set(asignables.map(p => p.id)))} className="accent-brand-secondary" />
+                </th>
                 <th className="px-5 py-3 font-semibold">Puesto</th>
                 <th className="px-5 py-3 font-semibold">Código</th>
                 <th className="px-5 py-3 font-semibold">Proyecto</th>
@@ -537,6 +642,12 @@ export function ProyectosPanel({
                         isExpanded ? "bg-brand-surface-soft" : "hover:bg-brand-surface-soft/50",
                       )}
                     >
+                      <td className="px-4 py-3">
+                        <input type="checkbox" aria-label={`Seleccionar ${p.codigo_ciego}`} checked={seleccionados.has(p.id)}
+                          disabled={ocupado || activeEtapaId === null || !proyectoAsignable(p.estado_postulacion)}
+                          title={proyectoAsignable(p.estado_postulacion) ? "Seleccionar proyecto" : "Proyecto no disponible para asignación"}
+                          onChange={() => cambiarSeleccion(p.id)} className="accent-brand-secondary" />
+                      </td>
                       <td className="px-5 py-3 font-[family-name:var(--font-mono)] text-[13px] font-bold text-brand-primary">
                         {ranking?.puesto ?? "—"}
                       </td>
@@ -601,7 +712,7 @@ export function ProyectosPanel({
                     {/* Panel expandido */}
                     {isExpanded && (
                       <tr key={`${p.id}-expanded`} className="bg-brand-surface-soft">
-                        <td colSpan={9} className="px-6 py-5">
+                        <td colSpan={10} className="px-6 py-5">
                           <div className="grid min-w-0 gap-6 md:grid-cols-2">
                             {/* Asignar evaluadores */}
                             <div className="min-w-0">
@@ -647,7 +758,7 @@ export function ProyectosPanel({
                                         <input
                                           type="checkbox"
                                           checked={assigned}
-                                          disabled={isLoading || activeEtapaId === null}
+                                          disabled={ocupado || isLoading || activeEtapaId === null}
                                           onChange={() => handleToggle(p.id, ev.id)}
                                           aria-label={(assigned ? "Quitar asignación de " : "Asignar a ") + ev.nombre}
                                           className="accent-brand-secondary"
@@ -692,7 +803,7 @@ export function ProyectosPanel({
                                       key={s.estado}
                                       variant={s.danger ? "ghost" : "secondary"}
                                       size="sm"
-                                      disabled={loadingKeys[`estado-${p.id}`]}
+                                      disabled={ocupado || loadingKeys[`estado-${p.id}`]}
                                       onClick={() => handleEstado(p.id, s.estado)}
                                       className={s.danger ? "border-st-danger/40 text-st-danger hover:bg-st-danger/5" : ""}
                                     >
@@ -709,10 +820,12 @@ export function ProyectosPanel({
                   </Fragment>
                 );
               })}
+              {!proyectosOrdenados.length && <tr><td colSpan={10} className="px-5 py-10 text-center text-brand-ink-muted">No hay proyectos que coincidan con los filtros.</td></tr>}
             </tbody>
           </table>
         </div>
       </Card>
+      </div>
     </div>
   );
 }

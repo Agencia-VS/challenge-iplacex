@@ -4,17 +4,18 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { EvaluadorTabla } from "@/components/app/evaluador-tabla";
 
 export const metadata: Metadata = { title: "Proyectos asignados" };
 
 type Asignacion = {
   id: string;
   estado: string;
+  etapa_id: number;
   proyecto: {
     id: string;
     codigo_ciego: string;
-    categorias: { nombre: string } | null;
+    categorias: { nombre: string; numero: number } | null;
   } | null;
   etapa: { nombre: string } | null;
 };
@@ -24,6 +25,8 @@ type Evaluacion = {
   proyecto_id: string;
   estado: string;
   puntaje_ponderado: number | null;
+  updated_at: string;
+  finalizada_at: string | null;
 };
 
 export default async function ProyectosEvaluadorPage() {
@@ -46,8 +49,8 @@ export default async function ProyectosEvaluadorPage() {
   const { data: asignacionesRaw } = await supabase
     .from("asignaciones")
     .select(`
-      id, estado,
-      proyecto:proyecto_id ( id, codigo_ciego, categorias ( nombre ) ),
+      id, estado, etapa_id,
+      proyecto:proyecto_id ( id, codigo_ciego, categorias ( nombre, numero ) ),
       etapa:etapa_id ( nombre )
     `)
     .eq("evaluador_id", user.id)
@@ -59,7 +62,7 @@ export default async function ProyectosEvaluadorPage() {
   const { data: evaluacionesRaw } = proyectoIds.length
     ? await supabase
         .from("evaluaciones")
-        .select("asignacion_id, proyecto_id, estado, puntaje_ponderado")
+        .select("asignacion_id, proyecto_id, estado, puntaje_ponderado, updated_at, finalizada_at")
         .in("proyecto_id", proyectoIds)
         .eq("evaluador_id", user.id)
     : { data: [] as Evaluacion[] };
@@ -93,51 +96,16 @@ export default async function ProyectosEvaluadorPage() {
           </div>
         </Card>
       ) : (
-        <Card className="overflow-hidden p-0">
-          <ul className="divide-y divide-brand-line">
-            {asignaciones.map(a => {
-              const ev = evalMap.get(a.id);
-              const tone =
-                ev?.estado === "finalizada" ? ("success" as const)
-                : ev?.estado === "en_progreso" ? ("secondary" as const)
-                : ("warning" as const);
-              const badgeLabel =
-                ev?.estado === "finalizada" ? "Completada"
-                : ev?.estado === "en_progreso" ? "En progreso"
-                : "Pendiente";
-
-              return (
-                <li key={a.id} className="flex items-center justify-between gap-4 px-6 py-4">
-                  <div className="flex min-w-0 items-center gap-4">
-                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[var(--r-sm)] bg-brand-secondary-soft font-[family-name:var(--font-mono)] text-[12px] font-bold text-brand-secondary">
-                      {a.proyecto?.codigo_ciego ?? "—"}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-[13px] font-semibold text-brand-ink">
-                        {a.proyecto?.categorias?.nombre ?? "Categoría"}
-                      </p>
-                      <p className="text-[11px] text-brand-ink-muted">
-                        {a.etapa?.nombre ?? "Ronda 1"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-3">
-                    <Badge tone={tone}>{badgeLabel}</Badge>
-                    {a.proyecto && (
-                      <Button
-                        href={`/app/evaluacion/proyectos/${a.proyecto.id}?asignacion=${encodeURIComponent(a.id)}`}
-                        variant={ev?.estado === "finalizada" ? "ghost" : "secondary"}
-                        size="sm"
-                      >
-                        {ev?.estado === "finalizada" ? "Ver" : "Evaluar →"}
-                      </Button>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </Card>
+        <EvaluadorTabla filas={asignaciones.map(a => ({
+          id: a.id, codigo: a.proyecto?.codigo_ciego ?? "—",
+          categoria: a.proyecto?.categorias?.nombre ?? null,
+          categoriaNumero: a.proyecto?.categorias?.numero ?? null,
+          etapaId: a.etapa_id, etapa: a.etapa?.nombre ?? "Etapa sin nombre",
+          estado: evalMap.get(a.id)?.estado ?? "pendiente",
+          puntaje: evalMap.get(a.id)?.puntaje_ponderado ?? null,
+          fecha: evalMap.get(a.id)?.finalizada_at ?? evalMap.get(a.id)?.updated_at,
+          href: a.proyecto ? `/app/evaluacion/proyectos/${a.proyecto.id}?asignacion=${encodeURIComponent(a.id)}` : null,
+        }))} />
       )}
     </div>
   );

@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Stat } from "@/components/ui/stat";
-import { Badge } from "@/components/ui/badge";
+import { EvaluadorTabla } from "@/components/app/evaluador-tabla";
 import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = { title: "Panel Evaluador" };
@@ -42,19 +42,22 @@ export default async function EvaluadorDashboard() {
   const { data: rawAsignaciones } = await supabase
     .from("asignaciones")
     .select(`
-      id,
-      proyectos ( id, codigo_ciego, nombre_proyecto, categorias ( nombre ) )
+      id, etapa_id,
+      etapa:etapa_id ( nombre ),
+      proyectos ( id, codigo_ciego, nombre_proyecto, categorias ( nombre, numero ) )
     `)
     .eq("evaluador_id", user.id)
     .order("created_at", { ascending: false });
 
   type AsigRow = {
     id: string;
+    etapa_id: number;
+    etapa: { nombre: string } | null;
     proyectos: {
       id: string;
       codigo_ciego: string;
       nombre_proyecto: string | null;
-      categorias: { nombre: string } | null;
+      categorias: { nombre: string; numero: number } | null;
     } | null;
   };
 
@@ -68,18 +71,18 @@ export default async function EvaluadorDashboard() {
   const { data: evalsRaw } = proyectoIds.length
     ? await supabase
         .from("evaluaciones")
-        .select("asignacion_id, proyecto_id, estado")
+        .select("asignacion_id, proyecto_id, estado, puntaje_ponderado, updated_at, finalizada_at")
         .in("proyecto_id", proyectoIds)
         .eq("evaluador_id", user.id)
-    : { data: [] as { asignacion_id: string; proyecto_id: string; estado: string }[] };
+    : { data: [] as { asignacion_id: string; proyecto_id: string; estado: string; puntaje_ponderado: number | null; updated_at: string; finalizada_at: string | null }[] };
 
   const evalMap = new Map(
-    (evalsRaw ?? []).map(e => [e.asignacion_id, e.estado]),
+    (evalsRaw ?? []).map(e => [e.asignacion_id, e]),
   );
 
   const totalAsignados = asignaciones.length;
   const completadas = asignaciones.filter(a =>
-    evalMap.get(a.id) === "finalizada",
+    evalMap.get(a.id)?.estado === "finalizada",
   ).length;
   const pendientes = totalAsignados - completadas;
 
@@ -105,7 +108,7 @@ export default async function EvaluadorDashboard() {
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-3">
-        <Stat label="Proyectos asignados" value={String(totalAsignados)} tone="secondary" detail="Esta ronda" />
+        <Stat label="Proyectos asignados" value={String(totalAsignados)} tone="secondary" detail="Todas las etapas" />
         <Stat label="Evaluaciones completas" value={`${completadas} / ${totalAsignados}`} tone={pendientes > 0 ? "warning" : "secondary"} detail={pendientes > 0 ? `${pendientes} pendientes` : "¡Al día!"} />
         <Stat label="Pendientes" value={String(pendientes)} tone="accent" detail={pendientes === 0 ? "Todo listo" : "Por completar"} />
       </div>
@@ -115,7 +118,7 @@ export default async function EvaluadorDashboard() {
         <div className="border-b border-brand-line px-6 py-4">
           <p className="brand-eyebrow">Proyectos asignados</p>
           <h2 className="mt-1 text-[17px] font-semibold text-brand-ink">
-            {esComiteTecnico ? "Etapa activa — Todos los proyectos" : "Etapa activa — Tus asignaciones"}
+            Tus asignaciones por vertical y etapa
           </h2>
         </div>
         {asignaciones.length === 0 ? (
@@ -127,54 +130,14 @@ export default async function EvaluadorDashboard() {
             </p>
           </div>
         ) : (
-        <ul className="divide-y divide-brand-line">
-          {asignaciones.map((a) => {
-            const p = a.proyectos;
-            if (!p) return null;
-            const evEstado = evalMap.get(a.id) ?? "pendiente";
-            return (
-              <li key={a.id} className="flex items-center justify-between gap-4 px-6 py-4">
-                <div className="flex items-center gap-4 min-w-0">
-                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[var(--r-sm)] bg-brand-secondary-soft font-[family-name:var(--font-mono)] text-[11px] font-bold text-brand-secondary">
-                    {p.codigo_ciego}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-[13px] font-semibold text-brand-ink">
-                      {p.nombre_proyecto ?? <span className="italic text-brand-ink-muted">Sin nombre</span>}
-                    </p>
-                    <p className="text-[11px] text-brand-ink-muted">
-                      {(p.categorias as { nombre: string } | null)?.nombre ?? "—"}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-3">
-                  <Badge
-                    tone={
-                      evEstado === "finalizada"
-                        ? "success"
-                        : evEstado === "en_progreso"
-                          ? "secondary"
-                          : "warning"
-                    }
-                  >
-                    {evEstado === "finalizada"
-                      ? "Finalizada"
-                      : evEstado === "en_progreso"
-                        ? "En progreso"
-                        : "Pendiente"}
-                  </Badge>
-                  <Button
-                    href={`/app/evaluacion/proyectos/${p.id}?asignacion=${encodeURIComponent(a.id)}`}
-                    variant={evEstado === "finalizada" ? "ghost" : "secondary"}
-                    size="sm"
-                  >
-                    {evEstado === "finalizada" ? "Ver" : "Evaluar"}
-                  </Button>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+        <div className="p-4"><EvaluadorTabla filas={asignaciones.map(a => ({
+          id: a.id, codigo: a.proyectos?.codigo_ciego ?? "—", nombre: a.proyectos?.nombre_proyecto,
+          categoria: a.proyectos?.categorias?.nombre ?? null, categoriaNumero: a.proyectos?.categorias?.numero ?? null,
+          etapaId: a.etapa_id, etapa: a.etapa?.nombre ?? "Etapa sin nombre", estado: evalMap.get(a.id)?.estado ?? "pendiente",
+          puntaje: evalMap.get(a.id)?.puntaje_ponderado ?? null,
+          fecha: evalMap.get(a.id)?.finalizada_at ?? evalMap.get(a.id)?.updated_at,
+          href: a.proyectos ? `/app/evaluacion/proyectos/${a.proyectos.id}?asignacion=${encodeURIComponent(a.id)}` : null,
+        }))} /></div>
         )}
       </Card>
     </div>
