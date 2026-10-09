@@ -1,16 +1,14 @@
 import { Container } from "@/components/ui/container";
 import { Button } from "@/components/ui/button";
-import { BrandPattern } from "@/components/brand/pattern";
 
 export function CtaSection() {
   return (
     <section className="py-16">
       <Container>
-        <div className="relative overflow-hidden rounded-[var(--r-xl)] bg-gradient-to-br from-brand-accent to-brand-accent-light p-10 text-white sm:p-16">
-          <BrandPattern tone="surface" />
+        <div className="relative overflow-hidden rounded-[var(--r-xl)] bg-linear-to-br from-brand-primary to-brand-accent px-6 py-10 text-white sm:p-16">
           <div className="relative max-w-2xl">
             <p className="brand-eyebrow text-white/80">Postulaciones abiertas hasta el 2 de octubre</p>
-            <h2 className="brand-display mt-4 text-[clamp(36px,5vw,58px)]">
+            <h2 className="brand-display mt-4 break-words text-[clamp(28px,5vw,58px)]">
               Tu emprendimiento o proyecto puede
               <span className="block">llegar al Demo Day.</span>
             </h2>
@@ -19,14 +17,14 @@ export function CtaSection() {
               No se evalúa su madurez absoluta, sino qué tan bien resuelto está para avanzar.
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
-              <Button href="/app/postular" variant="secondary" size="lg">
+              <Button href="/app/postular" variant="inverse" size="lg">
                 Empezar postulación
               </Button>
               <Button
                 href="/faq"
                 variant="ghost"
                 size="lg"
-                className="border-white/30 text-white hover:border-white hover:bg-white/10 hover:text-white"
+                className="border-white/50 text-white hover:border-white hover:bg-white/10 hover:text-white focus-visible:ring-white focus-visible:ring-offset-brand-primary"
               >
                 Tengo dudas primero
               </Button>

@@ -47,7 +47,7 @@ function CategoriaCard({ c, acento }: { c: Categoria; acento: string }) {
           Categoría {String(c.numero).padStart(2, "0")}
         </Badge>
 
-        <h3 className={`brand-display mt-5 text-[24px] ${acento}`}>{c.nombre}</h3>
+        <h3 className={`brand-display mt-5 break-words text-[19px] sm:text-[21px] xl:text-[24px] ${acento}`}>{c.nombre}</h3>
         <p className="mt-6 flex-1 text-[14px] leading-relaxed text-brand-ink-soft">{c.alcance}</p>
 
       </div>

@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
-type Variant = "primary" | "secondary" | "ghost" | "tertiary" | "outline";
+type Variant = "primary" | "secondary" | "ghost" | "tertiary" | "outline" | "inverse";
 type Size = "sm" | "md" | "lg";
 
 const base =
@@ -12,7 +12,8 @@ const variants: Record<Variant, string> = {
   primary:
     "bg-brand-accent text-white shadow-[0_2px_0_var(--brand-primary)] hover:bg-brand-accent-light hover:-translate-y-px hover:shadow-[0_3px_0_var(--brand-primary)] active:translate-y-px active:shadow-[0_1px_0_var(--brand-primary)]",
   secondary: "bg-brand-primary text-white hover:bg-brand-primary-light",
-  tertiary: "bg-brand-secondary text-white hover:bg-brand-secondary-light",
+  tertiary: "bg-brand-secondary text-white hover:bg-brand-primary",
+  inverse: "bg-white text-brand-primary shadow-sm hover:bg-brand-secondary-soft focus-visible:ring-white focus-visible:ring-offset-brand-primary",
   ghost:
     "bg-transparent text-brand-ink-soft border border-brand-line-strong hover:text-brand-primary hover:border-brand-primary hover:bg-brand-surface-raised",
   outline: "bg-brand-surface-raised text-brand-primary border border-brand-line-strong hover:border-brand-primary",

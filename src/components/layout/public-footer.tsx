@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Container } from "@/components/ui/container";
 import { BrandLogo } from "@/components/brand/logo";
-import { BrandPattern } from "@/components/brand/pattern";
 import { publicNav } from "@/lib/site";
 import { BRAND } from "@/lib/brand";
 
@@ -19,8 +18,7 @@ const equipoLinks = [
 export function PublicFooter() {
   return (
     <footer className="relative mt-24 overflow-hidden border-t border-brand-line bg-brand-primary text-white">
-      <BrandPattern tone="surface" scale={110} opacity={0.06} />
-      <Container className="relative grid gap-12 py-14 md:grid-cols-[1.2fr_1fr_1fr_1fr]">
+      <Container className="relative grid gap-10 py-14 sm:grid-cols-2 xl:grid-cols-[1.2fr_1fr_1fr_1fr]">
         <div>
           <BrandLogo variant="light" />
           <p className="mt-5 max-w-xs text-[14px] text-white/70">

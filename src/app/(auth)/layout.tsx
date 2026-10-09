@@ -9,7 +9,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   return (
     <div className="flex min-h-[100dvh] flex-col">
       <header className="border-b border-brand-line bg-brand-surface/70 backdrop-blur-xl">
-        <Container className="flex h-16 items-center justify-between">
+        <Container className="flex min-h-[84px] flex-wrap items-center justify-between gap-x-3 gap-y-1 pb-2 sm:pb-0">
           <Link href="/">
             <BrandLogo />
           </Link>

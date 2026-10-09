@@ -7,11 +7,11 @@ import { publicNav } from "@/lib/site";
 export function PublicNav() {
   return (
     <header className="sticky top-0 z-50 border-b border-brand-line bg-[color-mix(in_srgb,var(--brand-surface)_85%,transparent)] backdrop-blur-xl">
-      <Container className="flex h-16 items-center justify-between gap-6">
+      <Container className="flex min-h-[84px] items-center justify-between gap-2 px-3 sm:px-8">
         <Link href="/" className="shrink-0">
           <BrandLogo />
         </Link>
-        <nav className="hidden items-center gap-1 md:flex">
+        <nav aria-label="Navegación principal" className="hidden items-center gap-1 xl:flex">
           {publicNav.map((item) => (
             <Link
               key={item.href}
@@ -30,6 +30,15 @@ export function PublicNav() {
             Postular
           </Button>
         </div>
+      </Container>
+      <Container className="pb-3 xl:hidden">
+        <nav aria-label="Navegación principal" className="flex flex-wrap gap-x-4 gap-y-2">
+          {publicNav.map((item) => (
+            <Link key={item.href} href={item.href} className="text-xs font-medium text-brand-ink-soft hover:text-brand-accent">
+              {item.label}
+            </Link>
+          ))}
+        </nav>
       </Container>
     </header>
   );
