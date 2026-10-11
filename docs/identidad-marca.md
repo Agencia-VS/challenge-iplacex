@@ -29,10 +29,18 @@ El ZIP entregado contiene un PNG llamado `Logo-Iplacex_full_blanco.png` que est�
 prácticamente en blanco y sin canal alfa; no se utiliza. Los sellos de acreditación
 del ZIP y del PowerPoint no son el logo Iplacex y no se incorporan.
 
-## Fondo pendiente de DAM
+## Fondo de PC de ejemplo y pieza móvil pendiente
 
-Hasta recibir las imágenes, se muestra un degradado de los azules institucionales
-sin cuadrícula, fotografía de reemplazo ni solicitudes a archivos inexistentes.
+Se incorporó la imagen de ejemplo para PC suministrada por el cliente el 9 de
+octubre, `Gemini_Generated_Image_g023eqg023eqg023.jpg`, como
+`public/brand/hero-desktop-example.jpg`. Se conservan los bytes originales:
+2048 × 1012 px y aproximadamente 259 KiB. Next optimiza su entrega al navegador.
+Es una referencia de composición, pendiente de la aprobación final de DAM.
+
+Desde 1024 px se muestra la fotografía con encuadre centrado, persona a la derecha
+y degradado azul oscuro sobre la zona del texto. En móvil y tablet se conserva el
+degradado institucional; el navegador no descarga la foto horizontal para esas
+pantallas. La pieza vertical se puede incorporar independientemente.
 
 Entregables acordados:
 
@@ -44,22 +52,24 @@ Entregables acordados:
 Las imágenes deben llegar sin textos, botones o logos incrustados y con margen
 alrededor de los rostros. Son tamaños de entrega, no alturas fijas del bloque.
 
-Para activarlas:
+Para reemplazar el ejemplo e incorporar la pieza móvil:
 
 1. Optimizar y guardar las dos piezas aprobadas en `public/brand/`.
-2. Reemplazar `HERO_IMAGES = null` en `src/lib/brand.ts` por:
+2. Actualizar `HERO_IMAGES` en `src/lib/brand.ts`, usando las dimensiones reales:
 
 ```ts
 export const HERO_IMAGES: HeroImages | null = {
-  desktop: "/brand/hero-desktop.webp",
-  mobile: "/brand/hero-mobile.webp",
+  desktop: { src: "/brand/hero-desktop.webp", width: 2400, height: 1200 },
+  mobile: { src: "/brand/hero-mobile.webp", width: 1080, height: 1600 },
 };
 ```
 
-3. Revisar el encuadre y la legibilidad a 320, 390, 768 y 1440 px. Ajustar la
+3. Revisar el encuadre y la legibilidad a 320, 390, 768, 1024 y 1440 px. Ajustar la
    posición del objeto o el degradado según las fotografías reales.
 
 `HeroBackground` utiliza `picture` y `getImageProps` de Next. El navegador elige
-la pieza móvil hasta 767 px y la de PC desde 768 px. El ancho visible máximo
+la pieza móvil hasta 1023 px y la de PC desde 1024 px. Si se omite `mobile`, usa
+un recurso transparente embebido sobre el degradado, sin una descarga adicional.
+El ancho visible máximo
 actual es 1176 px y la altura crece con el contenido, conservando texto y botones
 como HTML accesible.

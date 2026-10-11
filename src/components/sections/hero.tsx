@@ -10,7 +10,7 @@ export function Hero() {
         <div className="relative overflow-hidden rounded-[var(--r-xl)] bg-brand-primary px-6 py-12 text-white sm:px-12 sm:py-20">
           <HeroBackground images={HERO_IMAGES} />
 
-          <div className="relative z-10 max-w-2xl">
+          <div className="relative z-10 max-w-2xl lg:max-w-[54%]">
             <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] font-[family-name:var(--font-heading)]">
               <span className="h-1.5 w-1.5 animate-[brand-blink_2s_ease-in-out_infinite] rounded-full bg-white" />
               Postulaciones abiertas

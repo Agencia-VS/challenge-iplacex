@@ -53,7 +53,10 @@ export const PALETTE = {
   surface: "#F5F5F5",
 } as const;
 
-export type HeroImages = { desktop: string; mobile: string };
+export type HeroImage = { src: string; width: number; height: number };
+export type HeroImages = { desktop: HeroImage; mobile?: HeroImage };
 
-/** Activar al recibir los dos fondos aprobados. No solicitar archivos inexistentes. */
-export const HERO_IMAGES: HeroImages | null = null;
+/** Ejemplo de PC suministrado por el cliente. La pieza móvil sigue pendiente. */
+export const HERO_IMAGES: HeroImages | null = {
+  desktop: { src: "/brand/hero-desktop-example.jpg", width: 2048, height: 1012 },
+};
