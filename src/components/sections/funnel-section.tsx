@@ -68,7 +68,7 @@ export async function FunnelSection() {
           {etapas.map((e, i) => (
             <li
               key={e.numero}
-              className="grid grid-cols-[44px_1fr_auto] items-center gap-4 rounded-[var(--r-md)] p-5 transition-colors hover:bg-brand-surface-soft"
+              className="grid grid-cols-[44px_minmax(0,1fr)] items-center gap-3 rounded-[var(--r-md)] p-4 transition-colors hover:bg-brand-surface-soft sm:grid-cols-[44px_minmax(0,1fr)_auto] sm:gap-4 sm:p-5"
             >
               <span
                 className={cn(
@@ -78,13 +78,13 @@ export async function FunnelSection() {
               >
                 {String(e.numero).padStart(2, "0")}
               </span>
-              <div>
+              <div className="min-w-0">
                 <p className="font-[family-name:var(--font-heading)] text-[15px] font-bold text-brand-primary">
                   {e.nombre}
                 </p>
                 <p className="mt-0.5 text-[13px] text-brand-ink-soft">{e.descripcion}</p>
               </div>
-              <div className="flex flex-col items-end gap-2">
+              <div className="col-start-2 flex flex-wrap items-center justify-between gap-2 sm:col-start-auto sm:flex-col sm:items-end">
                 <span className="font-[family-name:var(--font-mono)] text-[12px] text-brand-ink-muted">
                   {e.plazo}
                 </span>

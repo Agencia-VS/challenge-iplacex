@@ -1,17 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 151 163" width="151" height="163">
-  <title>Challenge IPLACEX</title>
-  <!--
-    Misma grilla que src/components/brand/mark.tsx, pero con la escala de grises
-    desplazada hacia el extremo oscuro: a 16 px los tonos del logotipo original
-    (#ECEAEB, #D1CDCD) se pierden contra el fondo del navegador.
-  -->
-  <rect x="0"   y="0"   width="51" height="51" fill="#575756"/>
-  <rect x="58"  y="5"   width="46" height="48" fill="#D1CDCD"/>
-  <rect x="110" y="9"   width="41" height="45" fill="#0000FF"/>
-  <rect x="0"   y="57"  width="51" height="49" fill="#A7A1A0"/>
-  <rect x="58"  y="58"  width="46" height="47" fill="#575756"/>
-  <rect x="110" y="59"  width="41" height="45" fill="#A7A1A0"/>
-  <rect x="0"   y="112" width="51" height="51" fill="#D1CDCD"/>
-  <rect x="58"  y="111" width="46" height="48" fill="#A7A1A0"/>
-  <rect x="110" y="109" width="41" height="46" fill="#D1CDCD"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="755 430 190 190" width="190" height="190">
+  <path transform="matrix(1,0,0,-1,775.9605,494.14613)" d="M0 0 49.269-1.5V44.154L0 47.944Z" fill="#a7a1a0" />
+  <path transform="matrix(1,0,0,-1,775.9605,549.5235)" d="M0 0 49.269 1.14V46.784L0 47.934Z" fill="#d1cdcd" />
+  <path transform="matrix(1,0,0,-1,775.9605,604.91067)" d="M0 0 49.269 3.79V49.434L0 47.934Z" fill="#eceaeb" />
+  <path transform="matrix(1,0,0,-1,832.4681,495.86079)" d="M0 0 44.134-1.344V41.913L0 45.304Z" fill="#eceaeb" />
+  <path transform="matrix(1,0,0,-1,832.4681,548.218)" d="M0 0 44.134 1.033V44.29L0 45.313Z" fill="#a7a1a0" />
+  <path transform="matrix(1,0,0,-1,832.4681,600.5654)" d="M0 0 44.134 3.39V46.658L0 45.313Z" fill="#d1cdcd" />
+  <path transform="matrix(1,0,0,-1,883.1106,497.4099)" d="M0 0 39.76-1.208V39.906L0 42.965Z" fill="#0000ff" />
+  <path transform="matrix(1,0,0,-1,883.1106,547.0391)" d="M0 0 39.76 .926V42.03L0 42.956Z" fill="#d1cdcd" />
+  <path transform="matrix(1,0,0,-1,883.1106,596.66836)" d="M0 0 39.76 3.059V44.164L0 42.956Z" fill="#eceaeb" />
 </svg>

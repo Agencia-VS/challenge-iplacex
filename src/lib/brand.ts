@@ -4,7 +4,7 @@
  * Para rebrandear el proyecto basta con editar:
  *   1. este archivo (nombres, URL, paleta en hex),
  *   2. los valores hex de `:root` en `src/app/globals.css` (tokens CSS),
- *   3. `src/app/icon.svg` + `src/components/brand/mark.tsx` (isotipo).
+ *   3. los archivos oficiales en `public/brand/` y los íconos de `src/app/`.
  *
  * El contenido del programa —categorías, etapas, criterios, rúbricas— es otra
  * capa y vive en `src/lib/site.ts` y `src/lib/rubrica.ts`.
@@ -39,26 +39,24 @@ export const BRAND = {
 } as const;
 
 /**
- * Paleta en hexadecimal, para consumidores JS que no pueden leer variables CSS
- * —por ejemplo el patrón de fondo, que se serializa como data: URI y por tanto
- * queda fuera del alcance de `var(--brand-*)`.
- *
- * Los valores salen del logotipo oficial: azul puro sobre una escala de grises
- * cálidos. Debe mantenerse en sync con `:root` en `src/app/globals.css`.
+ * Interfaz: azules oscuros de la pág. 9 del manual 2026, según solicitud DAM.
+ * El azul del archivo de logo oficial se conserva intacto.
+ * Mantener en sync con `:root` en `src/app/globals.css`.
  */
 export const PALETTE = {
-  primary: "#0A0A0A",
-  primaryLight: "#575756",
-  secondary: "#575756",
-  secondaryLight: "#A7A1A0",
-  accent: "#0000FF",
-  accentLight: "#3D3DFF",
-  surface: "#F5F4F4",
+  primary: "#06092D",
+  primaryLight: "#000080",
+  secondary: "#575757",
+  secondaryLight: "#979797",
+  accent: "#000080",
+  accentLight: "#06092D",
+  surface: "#F5F5F5",
 } as const;
 
-/** Grises exactos del isotipo, en el orden en que aparecen en la grilla. */
-export const GRISES = {
-  medio: "#A7A1A0",
-  claro: "#D1CDCD",
-  tenue: "#ECEAEB",
-} as const;
+export type HeroImage = { src: string; width: number; height: number };
+export type HeroImages = { desktop: HeroImage; mobile?: HeroImage };
+
+/** Ejemplo de PC suministrado por el cliente. La pieza móvil sigue pendiente. */
+export const HERO_IMAGES: HeroImages | null = {
+  desktop: { src: "/brand/hero-desktop-example.jpg", width: 2048, height: 1012 },
+};

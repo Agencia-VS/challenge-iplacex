@@ -186,7 +186,7 @@ function SidebarContent({
   return (
     <div className="flex h-full flex-col">
       {/* Logo */}
-      <div className="flex h-16 items-center justify-between border-b border-brand-line px-5">
+      <div className="flex min-h-[84px] shrink-0 items-center justify-between border-b border-brand-line px-3">
         <Link href="/" onClick={onClose}>
           <BrandLogo />
         </Link>
@@ -269,7 +269,7 @@ export function AppSidebar({ rol, nombre, email }: AppSidebarProps) {
       </aside>
 
       {/* ── Mobile topbar trigger ────────────────────────────────────────── */}
-      <div className="flex h-14 items-center justify-between border-b border-brand-line bg-brand-surface-raised/90 px-4 backdrop-blur-xl md:hidden">
+      <div className="flex min-h-[84px] shrink-0 items-center justify-between border-b border-brand-line bg-brand-surface-raised/90 px-4 backdrop-blur-xl md:hidden">
         <Link href="/">
           <BrandLogo />
         </Link>
