@@ -41,7 +41,7 @@ async function ensureEntrega(
 ): Promise<{ ok: true; entregaId: string } | { ok: false; error: string }> {
   const { data: proyecto } = await supabase
     .from("proyectos")
-    .select("id, estado_postulacion")
+    .select("id, convocatoria_id, estado_postulacion")
     .eq("id", proyectoId)
     .eq("postulante_id", userId)
     .maybeSingle();
@@ -49,11 +49,14 @@ async function ensureEntrega(
 
   const { data: etapa } = await supabase
     .from("etapas")
-    .select("id, tipo, nombre")
+    .select("id, convocatoria_id, tipo, nombre")
     .eq("id", etapaId)
     .maybeSingle();
   if (!etapa || !esEntregable(etapa.tipo)) {
     return { ok: false, error: "Esta etapa no admite entregas" };
+  }
+  if (etapa.convocatoria_id !== proyecto.convocatoria_id) {
+    return { ok: false, error: "La etapa no pertenece a la convocatoria de este proyecto" };
   }
 
   const config = ENTREGABLES[etapa.tipo]!;

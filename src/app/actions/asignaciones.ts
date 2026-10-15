@@ -148,5 +148,8 @@ export async function cambiarEstadoPostulacion(
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/app/admin/proyectos");
+  revalidatePath("/app/postulante");
+  revalidatePath("/app/postulante/postulacion");
+  revalidatePath("/app/postulante/entregas");
   return { ok: true };
 }
