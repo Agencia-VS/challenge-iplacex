@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { roleHomePath } from "@/lib/roles";
 import { ESTADO_BADGE_DEFAULT, type EstadoBadgeTone } from "@/lib/estados";
 import { nombreEtapa } from "@/lib/site";
+import { RefreshWhileVisible } from "@/components/app/refresh-while-visible";
 
 export const metadata: Metadata = { title: "Mi proceso" };
 export const dynamic = "force-dynamic";
@@ -48,30 +49,36 @@ export default async function PostulanteDashboard() {
 
   const nombre = perfil?.nombre ?? user.email?.split("@")[0] ?? "Postulante";
 
-  // Convocatoria activa (más reciente no cerrada)
-  const { data: convocatoria } = await supabase
-    .from("convocatorias")
-    .select("id, fecha_cierre")
-    .neq("estado", "cerrada")
-    .order("ano", { ascending: false })
+  // Mantener la misma postulación que muestra «Mi postulación», aunque su
+  // convocatoria ya no sea la más reciente o haya cerrado.
+  const { data: proyecto } = await supabase
+    .from("proyectos")
+    .select(`
+      id, convocatoria_id, nombre_proyecto, estado_postulacion,
+      resumen_ejecutivo, problema, segmento_usuarios, solucion,
+      ods, declaracion_autoria, equipo_nombre
+    `)
+    .eq("postulante_id", user.id)
+    .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  // Proyecto del postulante en la convocatoria activa
-  const { data: proyecto } = convocatoria
+  // Sin postulación, mostrar el cronograma de la convocatoria abierta.
+  const { data: convocatoria } = proyecto?.convocatoria_id
     ? await supabase
-        .from("proyectos")
-        .select(`
-          id, nombre_proyecto, estado_postulacion,
-          resumen_ejecutivo, problema, segmento_usuarios, solucion,
-          ods, declaracion_autoria, equipo_nombre
-        `)
-        .eq("postulante_id", user.id)
-        .eq("convocatoria_id", convocatoria.id)
+        .from("convocatorias")
+        .select("id, fecha_cierre")
+        .eq("id", proyecto.convocatoria_id)
         .maybeSingle()
-    : { data: null };
+    : await supabase
+        .from("convocatorias")
+        .select("id, fecha_cierre")
+        .eq("estado", "abierta")
+        .order("ano", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-  // Etapas de la convocatoria activa
+  // Etapas de la convocatoria a la que pertenece la postulación.
   const { data: etapasDB } = convocatoria
     ? await supabase
         .from("etapas")
@@ -93,7 +100,7 @@ export default async function PostulanteDashboard() {
   const etapaActiva = etapasDB?.find(e => {
     if (!e.fecha_inicio || !e.fecha_fin) return false;
     return new Date(e.fecha_inicio) <= now && new Date(e.fecha_fin) >= now;
-  }) ?? etapasDB?.[0] ?? null;
+  }) ?? null;
 
   // Días restantes para cierre de convocatoria
   const diasRestantes = convocatoria?.fecha_cierre
@@ -103,8 +110,19 @@ export default async function PostulanteDashboard() {
     : null;
 
   // Estado de la postulación
-  const estadoPostulacion = proyecto?.estado_postulacion ?? "borrador";
-  const estadoConf = ESTADO_BADGE_DEFAULT[estadoPostulacion] ?? { label: estadoPostulacion, tone: "neutral" as EstadoBadgeTone };
+  const estadoPostulacion = proyecto?.estado_postulacion ?? null;
+  const estadoConf = proyecto
+    ? estadoPostulacion
+      ? ESTADO_BADGE_DEFAULT[estadoPostulacion] ?? { label: estadoPostulacion, tone: "neutral" as EstadoBadgeTone }
+      : { label: "Estado no registrado", tone: "neutral" as EstadoBadgeTone }
+    : { label: "Sin postulación", tone: "neutral" as EstadoBadgeTone };
+  const tienePostulacionEnviada = Boolean(proyecto && estadoPostulacion && estadoPostulacion !== "borrador");
+  const hrefPostulacion = tienePostulacionEnviada
+    ? "/app/postulante/postulacion"
+    : "/app/postulante/postular";
+  const textoAccionPostulacion = tienePostulacionEnviada
+    ? "Ver mi postulación →"
+    : "Continuar postulación →";
 
   // Secciones del formulario y progreso (4 secciones, cada una = 25%)
   const secciones = [
@@ -117,6 +135,7 @@ export default async function PostulanteDashboard() {
 
   return (
     <div className="space-y-10">
+      <RefreshWhileVisible />
       {/* Header */}
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
@@ -128,7 +147,7 @@ export default async function PostulanteDashboard() {
             Revisa el estado de tu postulación, continúa donde lo dejaste y accede a los recursos de formación.
           </p>
         </div>
-        <Button href="/app/postulante/postular">Continuar postulación →</Button>
+        <Button href={hrefPostulacion}>{textoAccionPostulacion}</Button>
       </header>
 
       {/* Stats */}
@@ -137,10 +156,10 @@ export default async function PostulanteDashboard() {
           label="Estado postulación"
           value={estadoConf.label}
           tone={toStatTone(estadoConf.tone)}
-          detail={`${progreso}% completado`}
+          detail={proyecto ? "Estado actual de tu postulación" : "Aún no tienes una postulación"}
         />
         <Stat
-          label="Etapa actual"
+          label="Etapa del cronograma"
           value={etapaActiva ? String(etapaActiva.numero).padStart(2, "0") : "—"}
           tone="accent"
           detail={etapaActiva ? nombreEtapa(etapaActiva.numero, etapaActiva.nombre) : "Sin etapa activa"}
@@ -167,46 +186,56 @@ export default async function PostulanteDashboard() {
             <div>
               <p className="brand-eyebrow">Mi postulación</p>
               <h2 className="mt-1 text-[18px] font-semibold text-brand-ink">
-                {proyecto?.nombre_proyecto ?? (
+                {proyecto ? proyecto.nombre_proyecto ?? (
                   <span className="italic text-brand-ink-muted">Sin título</span>
+                ) : (
+                  <span className="italic text-brand-ink-muted">Todavía no has postulado</span>
                 )}
               </h2>
             </div>
             <Badge tone={estadoConf.tone}>{estadoConf.label}</Badge>
           </div>
 
-          {/* Progress bar */}
-          <div>
-            <div className="mb-1.5 flex justify-between text-[12px] text-brand-ink-muted">
-              <span>Progreso del formulario</span>
-              <span className="font-semibold text-brand-ink">{progreso}%</span>
-            </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-brand-line-strong">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-brand-accent to-brand-accent-light transition-all"
-                style={{ width: `${progreso}%` }}
-              />
-            </div>
-          </div>
+          {proyecto ? (
+            <>
+              {/* Progress bar */}
+              <div>
+                <div className="mb-1.5 flex justify-between text-[12px] text-brand-ink-muted">
+                  <span>Progreso del formulario</span>
+                  <span className="font-semibold text-brand-ink">{progreso}%</span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-brand-line-strong">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-brand-accent to-brand-accent-light transition-all"
+                    style={{ width: `${progreso}%` }}
+                  />
+                </div>
+              </div>
 
-          {/* Secciones */}
-          <ul className="space-y-2 text-[13px]">
-            {secciones.map((s) => (
-              <li key={s.label} className="flex items-center gap-2.5 text-brand-ink-soft">
-                <span
-                  className={`grid h-4 w-4 shrink-0 place-items-center rounded-full text-[9px] font-bold ${
-                    s.done ? "bg-st-success text-white" : "border border-brand-line-strong bg-brand-surface-soft text-brand-ink-muted"
-                  }`}
-                >
-                  {s.done ? "✓" : "–"}
-                </span>
-                {s.label}
-              </li>
-            ))}
-          </ul>
+              {/* Secciones */}
+              <ul className="space-y-2 text-[13px]">
+                {secciones.map((s) => (
+                  <li key={s.label} className="flex items-center gap-2.5 text-brand-ink-soft">
+                    <span
+                      className={`grid h-4 w-4 shrink-0 place-items-center rounded-full text-[9px] font-bold ${
+                        s.done ? "bg-st-success text-white" : "border border-brand-line-strong bg-brand-surface-soft text-brand-ink-muted"
+                      }`}
+                    >
+                      {s.done ? "✓" : "–"}
+                    </span>
+                    {s.label}
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p className="text-[13px] text-brand-ink-muted">
+              Cuando inicies tu postulación, aquí verás el avance del formulario.
+            </p>
+          )}
 
-          <Button variant="secondary" href="/app/postulante/postulacion" className="self-start">
-            Editar postulación
+          <Button variant="secondary" href={hrefPostulacion} className="self-start">
+            {tienePostulacionEnviada ? "Ver mi postulación" : "Continuar postulación"}
           </Button>
         </Card>
 

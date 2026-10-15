@@ -40,15 +40,20 @@ const EN_CARRERA: EstadoPostulacion[] = ["preseleccionado", "finalista", "premia
 /** Solo los finalistas presentan en el Demo Day. */
 const FINALISTAS: EstadoPostulacion[] = ["finalista", "premiado"];
 
+const ENTREGA_BOOTCAMP: EntregableConfig = {
+  titulo: "Avances del bootcamp",
+  descripcion: "Comparte avances, prototipos o material para tus sesiones de mentoría.",
+  aceptaVideo: false,
+  aceptaArchivos: true,
+  aceptaTexto: true,
+  habilitadaEn: EN_CARRERA,
+};
+
 export const ENTREGABLES: Partial<Record<TipoEtapa, EntregableConfig>> = {
-  bootcamp: {
-    titulo: "Avances del bootcamp",
-    descripcion: "Comparte avances, prototipos o material para tus sesiones de mentoría.",
-    aceptaVideo: false,
-    aceptaArchivos: true,
-    aceptaTexto: true,
-    habilitadaEn: EN_CARRERA,
-  },
+  bootcamp: ENTREGA_BOOTCAMP,
+  // Compatibilidad con convocatorias existentes donde la etapa operativa del
+  // bootcamp todavía está guardada con el tipo anterior «semifinal».
+  semifinal: ENTREGA_BOOTCAMP,
   demo_day: {
     titulo: "Material del Demo Day",
     descripcion: "Sube la presentación con que expondrás ante el jurado.",
@@ -85,8 +90,10 @@ export function entregasHabilitadas(
   etapas: { id: number; numero: number; nombre: string; tipo: string }[] | null | undefined,
 ): EntregaHabilitada[] {
   const est = (estado ?? "borrador") as EstadoPostulacion;
-  return (etapas ?? [])
-    .filter((e) => esEntregable(e.tipo))
+  const filas = etapas ?? [];
+  const tieneBootcampActualizado = filas.some((e) => e.tipo === "bootcamp");
+  return filas
+    .filter((e) => esEntregable(e.tipo) && !(e.tipo === "semifinal" && tieneBootcampActualizado))
     .map((e) => {
       const config = ENTREGABLES[e.tipo as TipoEtapa]!;
       return {

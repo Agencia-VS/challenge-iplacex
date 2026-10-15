@@ -8,6 +8,7 @@ import { roleHomePath } from "@/lib/roles";
 import { entregasHabilitadas } from "@/lib/entregas";
 import { firmarArchivos } from "@/app/actions/entregas";
 import { EntregaForm, type EntregaArchivo } from "@/components/app/entrega-form";
+import { RefreshWhileVisible } from "@/components/app/refresh-while-visible";
 
 export const metadata: Metadata = { title: "Entregas" };
 export const dynamic = "force-dynamic";
@@ -36,29 +37,21 @@ export default async function EntregasPage() {
     .from("usuarios").select("rol").eq("id", user.id).single();
   if (perfil?.rol && perfil.rol !== "postulante") redirect(roleHomePath(perfil.rol));
 
-  // Convocatoria activa (más reciente no cerrada)
-  const { data: convocatoria } = await supabase
-    .from("convocatorias")
-    .select("id")
-    .neq("estado", "cerrada")
-    .order("ano", { ascending: false })
+  // Resolver el mismo proyecto que «Mi postulación», aunque pertenezca a una
+  // convocatoria cerrada o anterior a la más reciente.
+  const { data: proyecto } = await supabase
+    .from("proyectos")
+    .select("id, convocatoria_id, estado_postulacion, created_at")
+    .eq("postulante_id", user.id)
+    .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  const { data: proyecto } = convocatoria
-    ? await supabase
-        .from("proyectos")
-        .select("id, estado_postulacion")
-        .eq("postulante_id", user.id)
-        .eq("convocatoria_id", convocatoria.id)
-        .maybeSingle()
-    : { data: null };
-
-  const { data: etapasDB } = convocatoria
+  const { data: etapasDB } = proyecto
     ? await supabase
         .from("etapas")
         .select("id, numero, nombre, tipo")
-        .eq("convocatoria_id", convocatoria.id)
+        .eq("convocatoria_id", proyecto.convocatoria_id)
         .order("numero", { ascending: true })
     : { data: [] };
 
@@ -95,14 +88,15 @@ export default async function EntregasPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 pb-20">
+      <RefreshWhileVisible />
       <header>
         <p className="brand-eyebrow text-brand-accent">Mi proceso</p>
         <h1 className="brand-display mt-1.5 text-[36px] leading-tight text-brand-primary md:text-[44px]">
           Entregas por etapa
         </h1>
         <p className="mt-2 max-w-xl text-[14px] text-brand-ink-soft">
-          A medida que tu proyecto avanza de etapa, aquí podrás subir el material que pide cada fase
-          (Video Pitch, pitch de 60s, material de mentoría).
+          El estado de tu proyecto se actualiza automáticamente. Aquí puedes subir el material
+          habilitado para las etapas que has alcanzado.
         </p>
       </header>
 
@@ -117,7 +111,7 @@ export default async function EntregasPage() {
       ) : habilitadas.length === 0 ? (
         <Card variant="ghost" className="py-14 text-center">
           <p className="text-[14px] text-brand-ink-muted">
-            No hay etapas con entregas configuradas para esta convocatoria.
+            No hay etapas con entregas configuradas para la convocatoria de tu postulación.
           </p>
         </Card>
       ) : (

@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { roleHomePath } from "@/lib/roles";
+import { RefreshWhileVisible } from "@/components/app/refresh-while-visible";
 
 export const metadata: Metadata = { title: "Mi postulación" };
 
@@ -22,7 +23,7 @@ const ESTADO_CONFIG: Record<string, {
   descalificado:      { label: "Descalificada",      tone: "warning"  },
   no_finalista:       { label: "No finalista",       tone: "neutral"  },
   finalista:          { label: "Finalista 🏆",        tone: "primary"   },
-  ganador:            { label: "Ganador 🥇",           tone: "accent"   },
+  premiado:           { label: "Premiado 🥇",          tone: "accent"   },
 };
 
 export default async function MiPostulacionPage() {
@@ -72,6 +73,7 @@ export default async function MiPostulacionPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 pb-20">
+      <RefreshWhileVisible />
       <header>
         <p className="brand-eyebrow text-brand-accent">Mi proceso</p>
         <h1 className="brand-display mt-1.5 text-[36px] leading-tight text-brand-primary md:text-[44px]">
