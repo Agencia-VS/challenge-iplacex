@@ -1,5 +1,8 @@
 import type { TipoEtapa } from "@/lib/site";
 
+/** Tamaño máximo por archivo de una entrega (25 MiB). */
+export const MAX_ARCHIVO_ENTREGA_BYTES = 25 * 1024 * 1024;
+
 /**
  * Qué etapas admiten una entrega del postulante y qué acepta cada una.
  *
@@ -28,7 +31,6 @@ export type EstadoPostulacion =
 export interface EntregableConfig {
   titulo: string;
   descripcion: string;
-  aceptaVideo: boolean;
   aceptaArchivos: boolean;
   aceptaTexto: boolean;
   /** Estados de postulación que habilitan esta entrega. */
@@ -43,7 +45,6 @@ const FINALISTAS: EstadoPostulacion[] = ["finalista", "premiado"];
 const ENTREGA_BOOTCAMP: EntregableConfig = {
   titulo: "Avances del bootcamp",
   descripcion: "Comparte avances, prototipos o material para tus sesiones de mentoría.",
-  aceptaVideo: false,
   aceptaArchivos: true,
   aceptaTexto: true,
   habilitadaEn: EN_CARRERA,
@@ -57,7 +58,6 @@ export const ENTREGABLES: Partial<Record<TipoEtapa, EntregableConfig>> = {
   demo_day: {
     titulo: "Material del Demo Day",
     descripcion: "Sube la presentación con que expondrás ante el jurado.",
-    aceptaVideo: true,
     aceptaArchivos: true,
     aceptaTexto: true,
     habilitadaEn: FINALISTAS,
