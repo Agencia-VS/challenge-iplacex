@@ -6,9 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/cn";
 import { getYoutubeThumbnail } from "@/lib/youtube";
+import { createClient } from "@/lib/supabase/client";
+import { MAX_ARCHIVO_ENTREGA_BYTES } from "@/lib/entregas";
 import {
   guardarEntrega,
-  subirArchivoEntrega,
+  prepararSubidaArchivoEntrega,
+  registrarArchivoEntrega,
   eliminarArchivoEntrega,
 } from "@/app/actions/entregas";
 
@@ -24,7 +27,6 @@ export interface EntregaFormProps {
   config: {
     titulo: string;
     descripcion: string;
-    aceptaVideo: boolean;
     aceptaArchivos: boolean;
     aceptaTexto: boolean;
   };
@@ -39,19 +41,6 @@ export interface EntregaFormProps {
 const inputClass =
   "block w-full rounded-[var(--r-sm)] border border-brand-line bg-brand-surface-soft px-3.5 py-2.5 text-[14px] outline-none transition-all placeholder:text-brand-ink-muted focus:border-brand-accent focus:bg-brand-surface-raised focus:ring-2 focus:ring-brand-accent-soft";
 
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      const comma = result.indexOf(",");
-      resolve(comma >= 0 ? result.slice(comma + 1) : result);
-    };
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-}
-
 export function EntregaForm({ proyectoId, etapa, config, initial = {} }: EntregaFormProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [videoUrl, setVideoUrl] = useState(initial.videoUrl ?? "");
@@ -63,7 +52,7 @@ export function EntregaForm({ proyectoId, etapa, config, initial = {} }: Entrega
   const [uploading, setUploading] = useState(false);
   const [feedback, setFeedback] = useState<{ kind: "ok" | "err"; msg: string } | null>(null);
 
-  const thumbnail = config.aceptaVideo && videoUrl ? getYoutubeThumbnail(videoUrl) : null;
+  const thumbnail = videoUrl ? getYoutubeThumbnail(videoUrl) : null;
 
   async function handleGuardar(enviar: boolean) {
     setSaving(true);
@@ -71,7 +60,7 @@ export function EntregaForm({ proyectoId, etapa, config, initial = {} }: Entrega
     const res = await guardarEntrega({
       proyectoId,
       etapaId: etapa.id,
-      videoUrl: config.aceptaVideo ? videoUrl : undefined,
+      videoUrl,
       contexto: config.aceptaTexto ? contexto : undefined,
       enviar,
     });
@@ -87,23 +76,48 @@ export function EntregaForm({ proyectoId, etapa, config, initial = {} }: Entrega
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > MAX_ARCHIVO_ENTREGA_BYTES) {
+      setFeedback({ kind: "err", msg: "Cada archivo puede pesar hasta 25 MB" });
+      e.target.value = "";
+      return;
+    }
     setUploading(true);
     setFeedback(null);
     try {
-      const base64 = await fileToBase64(file);
-      const res = await subirArchivoEntrega({
+      const preparada = await prepararSubidaArchivoEntrega({
         proyectoId,
         etapaId: etapa.id,
-        archivoBase64: base64,
         archivoNombre: file.name,
-        archivoTipoMime: file.type || "application/octet-stream",
+        archivoTamano: file.size,
+      });
+      if (!preparada.ok) {
+        setFeedback({ kind: "err", msg: preparada.error });
+        return;
+      }
+
+      const supabase = createClient();
+      const { error: uploadError } = await supabase.storage
+        .from("archivos")
+        .uploadToSignedUrl(preparada.path, preparada.token, file, {
+          contentType: file.type || "application/octet-stream",
+        });
+      if (uploadError) {
+        setFeedback({ kind: "err", msg: `Error al subir: ${uploadError.message}` });
+        return;
+      }
+
+      const res = await registrarArchivoEntrega({
+        proyectoId,
+        etapaId: etapa.id,
+        storagePath: preparada.path,
+        archivoNombre: file.name,
       });
       if (!res.ok) {
         setFeedback({ kind: "err", msg: res.error });
-      } else {
-        setArchivos((prev) => [...prev, { id: res.id, nombre: res.nombre, url: res.url }]);
-        setFeedback({ kind: "ok", msg: "📎 Archivo subido" });
+        return;
       }
+      setArchivos((prev) => [...prev, { id: res.id, nombre: res.nombre, url: res.url }]);
+      setFeedback({ kind: "ok", msg: "📎 Archivo subido" });
     } catch {
       setFeedback({ kind: "err", msg: "Error al subir el archivo" });
     } finally {
@@ -138,29 +152,34 @@ export function EntregaForm({ proyectoId, etapa, config, initial = {} }: Entrega
 
       <div className="mt-5 space-y-4">
         {/* Video */}
-        {config.aceptaVideo && (
-          <div className="flex flex-col gap-1.5">
-            <label className="brand-eyebrow text-brand-ink-soft">Video (link de YouTube)</label>
-            <input
-              type="url"
-              value={videoUrl}
-              onChange={(e) => setVideoUrl(e.target.value)}
-              placeholder="https://youtu.be/..."
-              className={inputClass}
-            />
-            {thumbnail && (
-              <a href={videoUrl} target="_blank" rel="noopener noreferrer" className="mt-2 block w-fit">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={thumbnail}
-                  alt="Miniatura del video"
-                  className="h-24 rounded-[var(--r-sm)] border border-brand-line object-cover"
-                  loading="lazy"
-                />
-              </a>
-            )}
-          </div>
-        )}
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor={`video-pitch-${etapa.id}`} className="brand-eyebrow text-brand-ink-soft">
+            Enlace público del video pitch (opcional)
+          </label>
+          <input
+            id={`video-pitch-${etapa.id}`}
+            type="url"
+            value={videoUrl}
+            onChange={(e) => setVideoUrl(e.target.value)}
+            placeholder="https://..."
+            className={inputClass}
+          />
+          <p className="text-[12px] text-brand-ink-muted">
+            Pega un enlace público de YouTube, Vimeo u otra plataforma. Revisa que cualquier persona
+            con el enlace pueda verlo.
+          </p>
+          {thumbnail && (
+            <a href={videoUrl} target="_blank" rel="noopener noreferrer" className="mt-2 block w-fit">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={thumbnail}
+                alt="Miniatura del video"
+                className="h-24 rounded-[var(--r-sm)] border border-brand-line object-cover"
+                loading="lazy"
+              />
+            </a>
+          )}
+        </div>
 
         {/* Contexto */}
         {config.aceptaTexto && (
@@ -179,7 +198,12 @@ export function EntregaForm({ proyectoId, etapa, config, initial = {} }: Entrega
         {/* Archivos */}
         {config.aceptaArchivos && (
           <div className="flex flex-col gap-2">
-            <label className="brand-eyebrow text-brand-ink-soft">Archivos</label>
+            <label htmlFor={`archivo-entrega-${etapa.id}`} className="brand-eyebrow text-brand-ink-soft">
+              Archivos de apoyo
+            </label>
+            <p className="text-[12px] text-brand-ink-muted">
+              Puedes subir documentos, presentaciones u otros materiales. Máximo 25 MB por archivo.
+            </p>
             {archivos.length > 0 && (
               <ul className="space-y-1.5">
                 {archivos.map((a) => (
@@ -208,6 +232,7 @@ export function EntregaForm({ proyectoId, etapa, config, initial = {} }: Entrega
             )}
             <input
               ref={fileRef}
+              id={`archivo-entrega-${etapa.id}`}
               type="file"
               onChange={handleUpload}
               disabled={uploading}
@@ -229,10 +254,10 @@ export function EntregaForm({ proyectoId, etapa, config, initial = {} }: Entrega
         )}
 
         <div className="flex flex-wrap gap-2 pt-1">
-          <Button variant="secondary" size="sm" onClick={() => handleGuardar(false)} disabled={saving}>
+          <Button variant="secondary" size="sm" onClick={() => handleGuardar(false)} disabled={saving || uploading}>
             {saving ? "Guardando…" : "Guardar borrador"}
           </Button>
-          <Button size="sm" onClick={() => handleGuardar(true)} disabled={saving}>
+          <Button size="sm" onClick={() => handleGuardar(true)} disabled={saving || uploading}>
             Enviar entrega
           </Button>
         </div>

@@ -702,8 +702,9 @@ CREATE POLICY "audit_admin_select" ON public.audit_log
 -- ---- 7. Storage buckets -------------------------------------------------------
 INSERT INTO storage.buckets (id, name, public)
   VALUES ('documentos', 'documentos', true)  ON CONFLICT DO NOTHING;
-INSERT INTO storage.buckets (id, name, public)
-  VALUES ('archivos',   'archivos',   false) ON CONFLICT DO NOTHING;
+INSERT INTO storage.buckets (id, name, public, file_size_limit)
+  VALUES ('archivos', 'archivos', false, 26214400)
+  ON CONFLICT (id) DO UPDATE SET file_size_limit = EXCLUDED.file_size_limit;
 INSERT INTO storage.buckets (id, name, public)
   VALUES ('avatares',   'avatares',   true)  ON CONFLICT DO NOTHING;
 

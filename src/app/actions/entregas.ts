@@ -5,10 +5,17 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { extractYoutubeId } from "@/lib/youtube";
-import { ENTREGABLES, esEntregable, type EstadoPostulacion } from "@/lib/entregas";
+import {
+  ENTREGABLES,
+  esEntregable,
+  MAX_ARCHIVO_ENTREGA_BYTES,
+  type EstadoPostulacion,
+} from "@/lib/entregas";
+import { randomUUID } from "node:crypto";
 
 const BUCKET = "archivos";
 const SIGNED_TTL = 60 * 60; // 1 hora
+const MAX_NOMBRE_ARCHIVO_LENGTH = 255;
 
 async function getSupabase() {
   const cookieStore = await cookies();
@@ -108,12 +115,23 @@ export async function guardarEntrega(input: GuardarEntregaInput): Promise<Entreg
   const ensured = await ensureEntrega(supabase, user.id, input.proyectoId, input.etapaId);
   if (!ensured.ok) return ensured;
 
-  const videoIdYoutube = input.videoUrl ? extractYoutubeId(input.videoUrl) : null;
+  const videoUrl = input.videoUrl?.trim() || null;
+  if (videoUrl) {
+    try {
+      const parsed = new URL(videoUrl);
+      if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+        return { ok: false, error: "El enlace del video debe comenzar con https:// o http://" };
+      }
+    } catch {
+      return { ok: false, error: "Ingresa un enlace válido para el video pitch" };
+    }
+  }
+  const videoIdYoutube = videoUrl ? extractYoutubeId(videoUrl) : null;
 
   const { error } = await supabase
     .from("entregas")
     .update({
-      video_url: input.videoUrl?.trim() || null,
+      video_url: videoUrl,
       video_id_youtube: videoIdYoutube,
       contexto: input.contexto?.trim() || null,
       estado: input.enviar ? "enviada" : "borrador",
@@ -127,66 +145,124 @@ export async function guardarEntrega(input: GuardarEntregaInput): Promise<Entreg
   return { ok: true, entregaId: ensured.entregaId };
 }
 
-export type SubirArchivoInput = {
+export type PrepararSubidaArchivoInput = {
   proyectoId: string;
   etapaId: number;
-  archivoBase64: string;
   archivoNombre: string;
-  archivoTipoMime: string;
+  archivoTamano: number;
 };
 
-export type SubirArchivoResult =
-  | { ok: true; id: string; nombre: string; url: string }
+export type PrepararSubidaArchivoResult =
+  | { ok: true; path: string; token: string }
   | { ok: false; error: string };
 
-export async function subirArchivoEntrega(input: SubirArchivoInput): Promise<SubirArchivoResult> {
+/** Crea un permiso de un solo uso para subir el archivo directo al bucket privado. */
+export async function prepararSubidaArchivoEntrega(
+  input: PrepararSubidaArchivoInput,
+): Promise<PrepararSubidaArchivoResult> {
   const supabase = await getSupabase();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "No autenticado" };
 
-  if (!input.archivoBase64 || !input.archivoNombre) {
+  const nombre = input.archivoNombre?.trim();
+  if (!nombre) {
     return { ok: false, error: "Archivo requerido" };
+  }
+  if (nombre.length > MAX_NOMBRE_ARCHIVO_LENGTH) {
+    return { ok: false, error: "El nombre del archivo supera el máximo de 255 caracteres" };
+  }
+  if (!Number.isSafeInteger(input.archivoTamano) || input.archivoTamano <= 0) {
+    return { ok: false, error: "El archivo está vacío o tiene un tamaño inválido" };
+  }
+  if (input.archivoTamano > MAX_ARCHIVO_ENTREGA_BYTES) {
+    return { ok: false, error: "Cada archivo puede pesar hasta 25 MB" };
   }
 
   const ensured = await ensureEntrega(supabase, user.id, input.proyectoId, input.etapaId);
   if (!ensured.ok) return ensured;
 
   const admin = createAdminClient();
-  const sanitizado = input.archivoNombre.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const storagePath = `entregas/${input.proyectoId}/${ensured.entregaId}/${Date.now()}-${sanitizado}`;
-  const bytes = Buffer.from(input.archivoBase64, "base64");
+  const sanitizado = nombre.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-160) || "archivo";
+  const storagePath = `entregas/${input.proyectoId}/${ensured.entregaId}/${randomUUID()}-${sanitizado}`;
 
-  const { error: uploadError } = await admin.storage
+  const { data, error } = await admin.storage
     .from(BUCKET)
-    .upload(storagePath, bytes, {
-      contentType: input.archivoTipoMime || "application/octet-stream",
-      upsert: false,
-    });
-  if (uploadError) return { ok: false, error: `Error al subir: ${uploadError.message}` };
+    .createSignedUploadUrl(storagePath, { upsert: false });
+  if (error || !data) {
+    return { ok: false, error: `No se pudo preparar la subida: ${error?.message ?? "Error de Storage"}` };
+  }
+
+  return { ok: true, path: data.path, token: data.token };
+}
+
+export type RegistrarArchivoEntregaInput = {
+  proyectoId: string;
+  etapaId: number;
+  storagePath: string;
+  archivoNombre: string;
+};
+
+export type RegistrarArchivoEntregaResult =
+  | { ok: true; id: string; nombre: string; url: string }
+  | { ok: false; error: string };
+
+/** Verifica y registra el objeto que el navegador subió directamente a Storage. */
+export async function registrarArchivoEntrega(
+  input: RegistrarArchivoEntregaInput,
+): Promise<RegistrarArchivoEntregaResult> {
+  const supabase = await getSupabase();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "No autenticado" };
+
+  const ensured = await ensureEntrega(supabase, user.id, input.proyectoId, input.etapaId);
+  if (!ensured.ok) return ensured;
+
+  const nombre = input.archivoNombre?.trim();
+  const prefijoPermitido = `entregas/${input.proyectoId}/${ensured.entregaId}/`;
+  if (!nombre || !input.storagePath?.startsWith(prefijoPermitido)) {
+    return { ok: false, error: "No se pudo verificar el archivo subido" };
+  }
+  if (nombre.length > MAX_NOMBRE_ARCHIVO_LENGTH) {
+    return { ok: false, error: "El nombre del archivo supera el máximo de 255 caracteres" };
+  }
+
+  const admin = createAdminClient();
+  const { data: metadata, error: infoError } = await admin.storage
+    .from(BUCKET)
+    .info(input.storagePath);
+  if (infoError || !metadata) {
+    return { ok: false, error: "No se encontró el archivo subido. Intenta nuevamente." };
+  }
+
+  const tamano = metadata.size ?? 0;
+  if (tamano <= 0 || tamano > MAX_ARCHIVO_ENTREGA_BYTES) {
+    await admin.storage.from(BUCKET).remove([input.storagePath]);
+    return { ok: false, error: "Cada archivo puede pesar hasta 25 MB y no puede estar vacío" };
+  }
 
   const { data: fila, error: insertError } = await supabase
     .from("archivos")
     .insert({
       proyecto_id: input.proyectoId,
       entrega_id: ensured.entregaId,
-      nombre: input.archivoNombre,
-      url: storagePath, // guardamos la ruta (bucket privado); se firma al leer
-      tipo_mime: input.archivoTipoMime || null,
-      tamano: bytes.length,
+      nombre,
+      url: input.storagePath, // guardamos la ruta (bucket privado); se firma al leer
+      tipo_mime: metadata.contentType?.slice(0, 100) || null,
+      tamano,
     })
     .select("id")
     .single();
   if (insertError) {
-    await admin.storage.from(BUCKET).remove([storagePath]);
+    await admin.storage.from(BUCKET).remove([input.storagePath]);
     return { ok: false, error: `Error al registrar: ${insertError.message}` };
   }
 
   const { data: signed } = await admin.storage
     .from(BUCKET)
-    .createSignedUrl(storagePath, SIGNED_TTL);
+    .createSignedUrl(input.storagePath, SIGNED_TTL);
 
   revalidatePath("/app/postulante/entregas");
-  return { ok: true, id: fila.id, nombre: input.archivoNombre, url: signed?.signedUrl ?? "" };
+  return { ok: true, id: fila.id, nombre, url: signed?.signedUrl ?? "" };
 }
 
 export type EliminarArchivoResult = { ok: true } | { ok: false; error: string };
