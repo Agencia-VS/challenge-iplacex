@@ -37,10 +37,10 @@ ALTER TABLE public.entregas ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "entregas_postulante"   ON public.entregas;
 DROP POLICY IF EXISTS "entregas_staff_select" ON public.entregas;
 
--- El dueño del proyecto gestiona sus entregas (el gating por etapa/estado se
--- valida en la server action + UI, igual que en la postulación).
+-- El postulante puede leer las entregas propias. Las escrituras pasan por
+-- acciones de servidor que validan propietario, convocatoria y etapa.
 CREATE POLICY "entregas_postulante" ON public.entregas
-  FOR ALL USING (
+  FOR SELECT USING (
     EXISTS (
       SELECT 1 FROM public.proyectos
       WHERE id = entregas.proyecto_id AND postulante_id = (select auth.uid())
