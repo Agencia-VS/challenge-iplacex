@@ -290,13 +290,36 @@ export async function eliminarArchivoEntrega(archivoId: string): Promise<Elimina
   return { ok: true };
 }
 
-/** Genera URLs firmadas para una lista de rutas del bucket privado `archivos`. */
+/** Firma solo archivos que la sesión actual puede leer según RLS. */
 export async function firmarArchivos(
   paths: string[],
 ): Promise<Record<string, string>> {
-  if (paths.length === 0) return {};
+  if (!Array.isArray(paths) || paths.length === 0 || paths.length > 100) return {};
+
+  const solicitadas = [...new Set(
+    paths.filter((path): path is string =>
+      typeof path === "string" && path.length > 0 && path.length <= 2048
+    ),
+  )];
+  if (solicitadas.length === 0) return {};
+
+  const supabase = await getSupabase();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return {};
+
+  // RLS limita esta lista a archivos propios, o a entregas asignadas al
+  // evaluador y etapa actuales. La service role firma únicamente esos paths.
+  const { data: archivos, error } = await supabase
+    .from("archivos")
+    .select("url")
+    .in("url", solicitadas);
+
+  if (error || !archivos?.length) return {};
+  const permitidas = [...new Set(archivos.map((archivo) => archivo.url))];
+  if (permitidas.length === 0) return {};
+
   const admin = createAdminClient();
-  const { data } = await admin.storage.from(BUCKET).createSignedUrls(paths, SIGNED_TTL);
+  const { data } = await admin.storage.from(BUCKET).createSignedUrls(permitidas, SIGNED_TTL);
   const out: Record<string, string> = {};
   (data ?? []).forEach((d) => {
     if (d.path && d.signedUrl) out[d.path] = d.signedUrl;
