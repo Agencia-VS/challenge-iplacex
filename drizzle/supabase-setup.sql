@@ -659,7 +659,14 @@ CREATE POLICY "archivos_postulante" ON public.archivos
     )
   );
 CREATE POLICY "archivos_staff_select" ON public.archivos
-  FOR SELECT USING (public.get_my_rol() IN ('admin', 'jurado', 'comite_tecnico'));
+  FOR SELECT USING (
+    public.get_my_rol() = 'admin'
+    OR EXISTS (
+      SELECT 1 FROM public.asignaciones a
+      WHERE a.proyecto_id = archivos.proyecto_id
+        AND a.evaluador_id = (select auth.uid())
+    )
+  );
 
 -- DOCUMENTOS
 DROP POLICY IF EXISTS "docs_autenticado_select" ON public.documentos;
