@@ -152,7 +152,7 @@ export default async function EvaluarProyectoPage({ params, searchParams }: Page
       .select("id, nombre, url")
       .eq("entrega_id", entrega.id);
     const rows = (archivos ?? []) as { id: string; nombre: string; url: string }[];
-    const firmadas = await firmarArchivos(rows.map((r) => r.url));
+    const firmadas = await firmarArchivos(entrega.id, rows.map((r) => r.url));
     entregaArchivos = rows.map((r) => ({ id: r.id, nombre: r.nombre, url: firmadas[r.url] ?? "" }));
   }
 
