@@ -139,7 +139,7 @@ export default async function EvaluarProyectoPage({ params, searchParams }: Page
   const { data: entrega } = asignacion.etapa_id
     ? await supabase
         .from("entregas")
-        .select("id, video_url, contexto")
+        .select("id, video_url, contexto, estado, enviada_at")
         .eq("proyecto_id", id)
         .eq("etapa_id", asignacion.etapa_id)
         .maybeSingle()
@@ -156,7 +156,14 @@ export default async function EvaluarProyectoPage({ params, searchParams }: Page
     entregaArchivos = rows.map((r) => ({ id: r.id, nombre: r.nombre, url: firmadas[r.url] ?? "" }));
   }
 
-  const tieneEntrega = !!(entrega && (entrega.video_url || entrega.contexto || entregaArchivos.length));
+  const tieneContenidoEntrega = !!(entrega && (entrega.video_url || entrega.contexto || entregaArchivos.length));
+  const esEtapaBootcamp = tipoEtapa === "bootcamp" || tipoEtapa === "semifinal";
+  const mostrarEstadoEntrega = esEtapaBootcamp || tieneContenidoEntrega;
+  const bloqueoFinalizacion = esEtapaBootcamp && entrega?.estado !== "enviada"
+    ? entrega
+      ? "La entrega de Bootcamp está guardada como borrador. El evaluador podrá finalizar cuando el equipo la envíe."
+      : "El equipo todavía no registra la entrega de Bootcamp. El evaluador podrá finalizar cuando la envíe."
+    : null;
 
   return (
     <div className="space-y-6 pb-20">
@@ -213,11 +220,26 @@ export default async function EvaluarProyectoPage({ params, searchParams }: Page
         </section>
       </Card>
 
-      {tieneEntrega && (
+      {mostrarEstadoEntrega && (
         <Card className="space-y-3 p-6">
-          <p className="brand-eyebrow text-brand-secondary">
-            Entrega de {nombreEtapa ?? "esta etapa"}
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="brand-eyebrow text-brand-secondary">
+              Entrega de {nombreEtapa ?? "esta etapa"}
+            </p>
+            <Badge tone={entrega?.estado === "enviada" ? "success" : "neutral"}>
+              {entrega?.estado === "enviada" ? "Enviada" : entrega ? "Borrador" : "Pendiente"}
+            </Badge>
+          </div>
+          {!entrega && (
+            <p className="text-[13px] text-brand-ink-soft">
+              El equipo todavía no registra una entrega para esta etapa.
+            </p>
+          )}
+          {entrega && entrega.estado !== "enviada" && (
+            <p className="text-[13px] text-brand-ink-soft">
+              El equipo guardó un borrador; todavía no lo envía para evaluación.
+            </p>
+          )}
           {entrega?.video_url && (
             <a
               href={entrega.video_url}
@@ -247,6 +269,11 @@ export default async function EvaluarProyectoPage({ params, searchParams }: Page
               ))}
             </ul>
           )}
+          {entrega?.estado === "enviada" && !tieneContenidoEntrega && (
+            <p className="text-[13px] text-brand-ink-soft">
+              La entrega fue enviada, pero no incluye link de video, contexto ni archivos.
+            </p>
+          )}
         </Card>
       )}
 
@@ -258,6 +285,7 @@ export default async function EvaluarProyectoPage({ params, searchParams }: Page
         categoria={categoria}
         etapa={etapaEvaluacion}
         etapaNombre={nombreEtapa}
+        bloqueoFinalizacion={bloqueoFinalizacion}
         initial={{
           niveles:
             (prevEval?.puntajes as Partial<Record<CriterioSlug, NivelDesempeno>> | null) ?? undefined,
