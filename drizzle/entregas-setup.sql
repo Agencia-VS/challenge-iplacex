@@ -3,8 +3,8 @@
 -- Ejecutar en Supabase SQL Editor (Settings > SQL Editor)
 --
 -- Crea la tabla `entregas` (una por proyecto+etapa) y vincula `archivos` a la
--- entrega. No toca `proyectos` ni la postulación. Seguro de correr con el
--- concurso en vivo: solo agrega estructura nueva.
+-- entrega. No toca `proyectos` ni la postulación. Después ejecuta
+-- evaluador-access-hardening.sql para aplicar las políticas de evaluación.
 -- ================================================================================
 
 -- 1. Tabla entregas
