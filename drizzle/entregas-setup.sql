@@ -47,9 +47,89 @@ CREATE POLICY "entregas_postulante" ON public.entregas
     )
   );
 
--- Staff (admin / evaluador) puede leer las entregas para evaluarlas.
+-- El admin puede leer todas; los evaluadores solo la etapa asignada.
 CREATE POLICY "entregas_staff_select" ON public.entregas
-  FOR SELECT USING (public.get_my_rol() IN ('admin', 'jurado', 'comite_tecnico'));
+  FOR SELECT USING (
+    public.get_my_rol() = 'admin'
+    OR EXISTS (
+      SELECT 1 FROM public.asignaciones a
+      WHERE a.proyecto_id = entregas.proyecto_id
+        AND a.etapa_id = entregas.etapa_id
+        AND a.evaluador_id = (select auth.uid())
+    )
+  );
+
+DROP POLICY IF EXISTS "archivos_staff_select" ON public.archivos;
+CREATE POLICY "archivos_staff_select" ON public.archivos
+  FOR SELECT USING (
+    public.get_my_rol() = 'admin'
+    OR EXISTS (
+      SELECT 1 FROM public.asignaciones a
+      WHERE a.proyecto_id = archivos.proyecto_id
+        AND a.evaluador_id = (select auth.uid())
+        AND (
+          archivos.entrega_id IS NULL
+          OR EXISTS (
+            SELECT 1 FROM public.entregas e
+            WHERE e.id = archivos.entrega_id
+              AND e.proyecto_id = archivos.proyecto_id
+              AND e.etapa_id = a.etapa_id
+          )
+        )
+    )
+  );
+
+-- Los objetos del bucket privado se limitan al proyecto propio o a la etapa
+-- asignada. Las subidas de la app usan URLs temporales generadas en servidor.
+DROP POLICY IF EXISTS "storage_postulante_archivos" ON storage.objects;
+DROP POLICY IF EXISTS "storage_entrega_postulante" ON storage.objects;
+DROP POLICY IF EXISTS "storage_entrega_staff_select" ON storage.objects;
+
+CREATE POLICY "storage_entrega_postulante" ON storage.objects
+  FOR ALL TO authenticated
+  USING (
+    bucket_id = 'archivos'
+    AND EXISTS (
+      SELECT 1
+      FROM public.entregas e
+      JOIN public.proyectos p ON p.id = e.proyecto_id
+      WHERE (storage.foldername(name))[1] = 'entregas'
+        AND e.id::text = (storage.foldername(name))[3]
+        AND p.id::text = (storage.foldername(name))[2]
+        AND p.postulante_id = (select auth.uid())
+    )
+  )
+  WITH CHECK (
+    bucket_id = 'archivos'
+    AND EXISTS (
+      SELECT 1
+      FROM public.entregas e
+      JOIN public.proyectos p ON p.id = e.proyecto_id
+      WHERE (storage.foldername(name))[1] = 'entregas'
+        AND e.id::text = (storage.foldername(name))[3]
+        AND p.id::text = (storage.foldername(name))[2]
+        AND p.postulante_id = (select auth.uid())
+    )
+  );
+
+CREATE POLICY "storage_entrega_staff_select" ON storage.objects
+  FOR SELECT TO authenticated
+  USING (
+    bucket_id = 'archivos'
+    AND (
+      public.get_my_rol() = 'admin'
+      OR EXISTS (
+        SELECT 1
+        FROM public.entregas e
+        JOIN public.asignaciones a
+          ON a.proyecto_id = e.proyecto_id AND a.etapa_id = e.etapa_id
+        WHERE (storage.foldername(name))[1] = 'entregas'
+          AND e.id::text = (storage.foldername(name))[3]
+          AND e.proyecto_id::text = (storage.foldername(name))[2]
+          AND a.evaluador_id = (select auth.uid())
+      )
+    )
+  );
 
 -- ================================================================================
 -- Verificación:
