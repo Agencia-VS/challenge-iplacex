@@ -290,11 +290,13 @@ export async function eliminarArchivoEntrega(archivoId: string): Promise<Elimina
   return { ok: true };
 }
 
-/** Firma solo archivos que la sesión actual puede leer según RLS. */
+/** Firma solo archivos registrados en una entrega accesible para la sesión. */
 export async function firmarArchivos(
+  entregaId: string,
   paths: string[],
 ): Promise<Record<string, string>> {
-  if (!Array.isArray(paths) || paths.length === 0 || paths.length > 100) return {};
+  if (typeof entregaId !== "string" || !entregaId || !Array.isArray(paths) ||
+      paths.length === 0 || paths.length > 100) return {};
 
   const solicitadas = [...new Set(
     paths.filter((path): path is string =>
@@ -307,15 +309,35 @@ export async function firmarArchivos(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return {};
 
-  // RLS limita esta lista a archivos propios, o a entregas asignadas al
-  // evaluador y etapa actuales. La service role firma únicamente esos paths.
+  // La entrega se vuelve a autorizar por RLS, tanto para el postulante como
+  // para el evaluador asignado a esa etapa.
+  const { data: entrega, error: entregaError } = await supabase
+    .from("entregas")
+    .select("id, proyecto_id")
+    .eq("id", entregaId)
+    .maybeSingle();
+  if (entregaError || !entrega) return {};
+
   const { data: archivos, error } = await supabase
     .from("archivos")
-    .select("url")
+    .select("url, proyecto_id, entrega_id")
+    .eq("proyecto_id", entrega.proyecto_id)
+    .eq("entrega_id", entrega.id)
     .in("url", solicitadas);
 
   if (error || !archivos?.length) return {};
-  const permitidas = [...new Set(archivos.map((archivo) => archivo.url))];
+  const prefijo = `entregas/${entrega.proyecto_id}/${entrega.id}/`;
+  const nombreSeguro = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-[a-zA-Z0-9._-]+$/i;
+  const permitidas = [...new Set(
+    archivos
+      .filter((archivo) =>
+        archivo.proyecto_id === entrega.proyecto_id &&
+        archivo.entrega_id === entrega.id &&
+        archivo.url.startsWith(prefijo) &&
+        nombreSeguro.test(archivo.url.slice(prefijo.length))
+      )
+      .map((archivo) => archivo.url),
+  )];
   if (permitidas.length === 0) return {};
 
   const admin = createAdminClient();
