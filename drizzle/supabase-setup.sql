@@ -574,7 +574,7 @@ CREATE POLICY "proyectos_postulante_select" ON public.proyectos
 -- Evaluador solo ve proyectos que tiene asignados (evaluacion ciega)
 CREATE POLICY "proyectos_evaluador_select" ON public.proyectos
   FOR SELECT USING (
-    public.get_my_rol() = 'jurado'
+    public.get_my_rol() IN ('jurado', 'comite_tecnico')
     AND EXISTS (
       SELECT 1 FROM public.asignaciones
       WHERE proyecto_id = proyectos.id AND evaluador_id = (select auth.uid())
@@ -582,7 +582,7 @@ CREATE POLICY "proyectos_evaluador_select" ON public.proyectos
   );
 
 CREATE POLICY "proyectos_admin_select" ON public.proyectos
-  FOR SELECT USING (public.get_my_rol() IN ('admin', 'comite_tecnico'));
+  FOR SELECT USING (public.get_my_rol() = 'admin');
 
 -- Solo postulantes pueden crear proyectos para si mismos
 CREATE POLICY "proyectos_insert" ON public.proyectos
@@ -611,9 +611,27 @@ CREATE POLICY "eval_insert" ON public.evaluaciones
   FOR INSERT WITH CHECK (
     evaluador_id = (select auth.uid())
     AND public.get_my_rol() IN ('jurado', 'comite_tecnico')
+    AND EXISTS (
+      SELECT 1 FROM public.asignaciones a
+      WHERE a.id = evaluaciones.asignacion_id
+        AND a.evaluador_id = (select auth.uid())
+        AND a.proyecto_id = evaluaciones.proyecto_id
+        AND a.etapa_id = evaluaciones.etapa_id
+    )
   );
 CREATE POLICY "eval_propia" ON public.evaluaciones
-  FOR ALL USING (evaluador_id = (select auth.uid()));
+  FOR ALL
+  USING (evaluador_id = (select auth.uid()))
+  WITH CHECK (
+    evaluador_id = (select auth.uid())
+    AND EXISTS (
+      SELECT 1 FROM public.asignaciones a
+      WHERE a.id = evaluaciones.asignacion_id
+        AND a.evaluador_id = (select auth.uid())
+        AND a.proyecto_id = evaluaciones.proyecto_id
+        AND a.etapa_id = evaluaciones.etapa_id
+    )
+  );
 CREATE POLICY "eval_admin_super" ON public.evaluaciones
   FOR SELECT USING (public.get_my_rol() IN ('admin', 'comite_tecnico'));
 
@@ -634,7 +652,7 @@ CREATE POLICY "asig_admin_all" ON public.asignaciones
 DROP POLICY IF EXISTS "archivos_postulante"   ON public.archivos;
 DROP POLICY IF EXISTS "archivos_staff_select" ON public.archivos;
 CREATE POLICY "archivos_postulante" ON public.archivos
-  FOR ALL USING (
+  FOR SELECT USING (
     EXISTS (
       SELECT 1 FROM public.proyectos
       WHERE id = archivos.proyecto_id AND postulante_id = (select auth.uid())
@@ -713,8 +731,11 @@ DROP POLICY IF EXISTS "storage_postulante_archivos" ON storage.objects;
 DROP POLICY IF EXISTS "storage_avatares"            ON storage.objects;
 CREATE POLICY "storage_admin_docs" ON storage.objects
   FOR INSERT WITH CHECK (bucket_id = 'documentos' AND public.get_my_rol() = 'admin');
+-- El bucket de entregas se abre luego con políticas por proyecto y asignación
+-- en drizzle/entregas-setup.sql.
 CREATE POLICY "storage_postulante_archivos" ON storage.objects
-  FOR ALL USING (bucket_id = 'archivos' AND auth.uid() IS NOT NULL);
+  FOR ALL USING (bucket_id = 'archivos' AND public.get_my_rol() = 'admin')
+  WITH CHECK (bucket_id = 'archivos' AND public.get_my_rol() = 'admin');
 CREATE POLICY "storage_avatares" ON storage.objects
   FOR ALL USING (bucket_id = 'avatares' AND auth.uid() IS NOT NULL);
 

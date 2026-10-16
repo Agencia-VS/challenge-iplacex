@@ -28,6 +28,7 @@ export interface EvaluacionFormProps {
   codigoCiego: string;
   /** Nombre visible de la etapa que se está evaluando. */
   etapaNombre?: string | null;
+  bloqueoFinalizacion?: string | null;
   /** Decide qué descriptores de desempeño se muestran. */
   categoria: CategoriaSlug;
   /** La preselección no evalúa el pitch y normaliza el puntaje. */
@@ -47,6 +48,7 @@ export function EvaluacionForm({
   categoria,
   etapa,
   etapaNombre = null,
+  bloqueoFinalizacion = null,
   initial = {},
 }: EvaluacionFormProps) {
   const router = useRouter();
@@ -228,12 +230,18 @@ export function EvaluacionForm({
             )}
           </div>
 
+          {bloqueoFinalizacion && (
+            <p className="mt-5 rounded-[var(--r-sm)] border border-st-warning/30 bg-st-warning/5 px-3 py-2 text-[12px] leading-relaxed text-brand-ink-soft">
+              {bloqueoFinalizacion}
+            </p>
+          )}
+
           <div className="mt-5 flex flex-col gap-2">
             <Button
               type="button"
               variant="primary"
               onClick={() => submit(true)}
-              disabled={loading || !completa}
+              disabled={loading || !completa || !!bloqueoFinalizacion}
             >
               {loading ? "Enviando…" : "✅ Enviar evaluación"}
             </Button>

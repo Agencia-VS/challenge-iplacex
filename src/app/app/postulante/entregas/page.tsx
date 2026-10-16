@@ -75,13 +75,27 @@ export default async function EntregasPage() {
       .eq("proyecto_id", proyecto.id)
       .not("entrega_id", "is", null);
     const rows = (archivos ?? []) as ArchivoRow[];
-    const firmadas = await firmarArchivos(rows.map((r) => r.url));
-    for (const r of rows) {
-      if (!r.entrega_id) continue;
-      (archivosPorEntrega[r.entrega_id] ??= []).push({
-        id: r.id,
-        nombre: r.nombre,
-        url: firmadas[r.url] ?? "",
+    const pathsPorEntrega = new Map<string, string[]>();
+    for (const row of rows) {
+      if (!row.entrega_id) continue;
+      const paths = pathsPorEntrega.get(row.entrega_id) ?? [];
+      paths.push(row.url);
+      pathsPorEntrega.set(row.entrega_id, paths);
+    }
+    const resultadosFirmados = await Promise.all(
+      [...pathsPorEntrega.entries()].map(([entregaId, paths]) =>
+        firmarArchivos(entregaId, paths)
+      ),
+    );
+    const firmadas: Record<string, string> = {};
+    resultadosFirmados.forEach((resultado) => Object.assign(firmadas, resultado));
+
+    for (const row of rows) {
+      if (!row.entrega_id) continue;
+      (archivosPorEntrega[row.entrega_id] ??= []).push({
+        id: row.id,
+        nombre: row.nombre,
+        url: firmadas[row.url] ?? "",
       });
     }
   }

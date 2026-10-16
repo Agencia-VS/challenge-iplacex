@@ -3,8 +3,8 @@
 -- Ejecutar en Supabase SQL Editor (Settings > SQL Editor)
 --
 -- Crea la tabla `entregas` (una por proyecto+etapa) y vincula `archivos` a la
--- entrega. No toca `proyectos` ni la postulación. Seguro de correr con el
--- concurso en vivo: solo agrega estructura nueva.
+-- entrega. No toca `proyectos` ni la postulación. Después ejecuta
+-- evaluador-access-hardening.sql para aplicar las políticas de evaluación.
 -- ================================================================================
 
 -- 1. Tabla entregas
@@ -37,19 +37,99 @@ ALTER TABLE public.entregas ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "entregas_postulante"   ON public.entregas;
 DROP POLICY IF EXISTS "entregas_staff_select" ON public.entregas;
 
--- El dueño del proyecto gestiona sus entregas (el gating por etapa/estado se
--- valida en la server action + UI, igual que en la postulación).
+-- El postulante puede leer las entregas propias. Las escrituras pasan por
+-- acciones de servidor que validan propietario, convocatoria y etapa.
 CREATE POLICY "entregas_postulante" ON public.entregas
-  FOR ALL USING (
+  FOR SELECT USING (
     EXISTS (
       SELECT 1 FROM public.proyectos
       WHERE id = entregas.proyecto_id AND postulante_id = (select auth.uid())
     )
   );
 
--- Staff (admin / evaluador) puede leer las entregas para evaluarlas.
+-- El admin puede leer todas; los evaluadores solo la etapa asignada.
 CREATE POLICY "entregas_staff_select" ON public.entregas
-  FOR SELECT USING (public.get_my_rol() IN ('admin', 'jurado', 'comite_tecnico'));
+  FOR SELECT USING (
+    public.get_my_rol() = 'admin'
+    OR EXISTS (
+      SELECT 1 FROM public.asignaciones a
+      WHERE a.proyecto_id = entregas.proyecto_id
+        AND a.etapa_id = entregas.etapa_id
+        AND a.evaluador_id = (select auth.uid())
+    )
+  );
+
+DROP POLICY IF EXISTS "archivos_staff_select" ON public.archivos;
+CREATE POLICY "archivos_staff_select" ON public.archivos
+  FOR SELECT USING (
+    public.get_my_rol() = 'admin'
+    OR EXISTS (
+      SELECT 1 FROM public.asignaciones a
+      WHERE a.proyecto_id = archivos.proyecto_id
+        AND a.evaluador_id = (select auth.uid())
+        AND (
+          archivos.entrega_id IS NULL
+          OR EXISTS (
+            SELECT 1 FROM public.entregas e
+            WHERE e.id = archivos.entrega_id
+              AND e.proyecto_id = archivos.proyecto_id
+              AND e.etapa_id = a.etapa_id
+          )
+        )
+    )
+  );
+
+-- Los objetos del bucket privado se limitan al proyecto propio o a la etapa
+-- asignada. Las subidas de la app usan URLs temporales generadas en servidor.
+DROP POLICY IF EXISTS "storage_postulante_archivos" ON storage.objects;
+DROP POLICY IF EXISTS "storage_entrega_postulante" ON storage.objects;
+DROP POLICY IF EXISTS "storage_entrega_staff_select" ON storage.objects;
+
+CREATE POLICY "storage_entrega_postulante" ON storage.objects
+  FOR ALL TO authenticated
+  USING (
+    bucket_id = 'archivos'
+    AND EXISTS (
+      SELECT 1
+      FROM public.entregas e
+      JOIN public.proyectos p ON p.id = e.proyecto_id
+      WHERE (storage.foldername(name))[1] = 'entregas'
+        AND e.id::text = (storage.foldername(name))[3]
+        AND p.id::text = (storage.foldername(name))[2]
+        AND p.postulante_id = (select auth.uid())
+    )
+  )
+  WITH CHECK (
+    bucket_id = 'archivos'
+    AND EXISTS (
+      SELECT 1
+      FROM public.entregas e
+      JOIN public.proyectos p ON p.id = e.proyecto_id
+      WHERE (storage.foldername(name))[1] = 'entregas'
+        AND e.id::text = (storage.foldername(name))[3]
+        AND p.id::text = (storage.foldername(name))[2]
+        AND p.postulante_id = (select auth.uid())
+    )
+  );
+
+CREATE POLICY "storage_entrega_staff_select" ON storage.objects
+  FOR SELECT TO authenticated
+  USING (
+    bucket_id = 'archivos'
+    AND (
+      public.get_my_rol() = 'admin'
+      OR EXISTS (
+        SELECT 1
+        FROM public.entregas e
+        JOIN public.asignaciones a
+          ON a.proyecto_id = e.proyecto_id AND a.etapa_id = e.etapa_id
+        WHERE (storage.foldername(name))[1] = 'entregas'
+          AND e.id::text = (storage.foldername(name))[3]
+          AND e.proyecto_id::text = (storage.foldername(name))[2]
+          AND a.evaluador_id = (select auth.uid())
+      )
+    )
+  );
 
 -- ================================================================================
 -- Verificación:

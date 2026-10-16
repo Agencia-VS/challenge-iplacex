@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { calcularPuntaje, estaCompleta, type CriterioSlug, type NivelDesempeno, type EtapaEvaluacion } from "@/lib/rubrica";
+import { calcularPuntaje, criteriosDe, estaCompleta, type CriterioSlug, type NivelDesempeno, type EtapaEvaluacion } from "@/lib/rubrica";
 import { validarAdmisibilidad, type Calidad } from "@/lib/admisibilidad";
 import { rutCanonico } from "@/lib/rut";
 
@@ -243,42 +243,112 @@ export async function guardarEvaluacion(input: EvaluacionInput): Promise<ActionR
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "No autenticado" };
 
-  // Una evaluación sólo se finaliza con todos los criterios de la etapa
-  // calificados; guardar progreso parcial sí está permitido.
-  if (input.finalizar && !estaCompleta(input.niveles, input.etapa)) {
+  if (
+    !input ||
+    typeof input.proyectoId !== "string" ||
+    typeof input.asignacionId !== "string" ||
+    !Number.isSafeInteger(input.etapaId) ||
+    typeof input.finalizar !== "boolean" ||
+    !input.niveles ||
+    typeof input.niveles !== "object" ||
+    Array.isArray(input.niveles) ||
+    typeof input.fortalezas !== "string" ||
+    typeof input.mejoras !== "string" ||
+    input.fortalezas.length > 500 ||
+    input.mejoras.length > 500
+  ) {
+    return { ok: false, error: "Los datos de la evaluación no son válidos" };
+  }
+
+  // El servidor resuelve la asignación y su etapa; no confía en los ids ni en
+  // la rúbrica recibida desde el navegador.
+  const { data: asignacion, error: asignacionError } = await supabase
+    .from("asignaciones")
+    .select("id, proyecto_id, etapa_id, etapas ( tipo )")
+    .eq("id", input.asignacionId)
+    .eq("evaluador_id", user.id)
+    .maybeSingle();
+
+  if (asignacionError || !asignacion) {
+    return { ok: false, error: "No tienes una asignación válida para evaluar" };
+  }
+  if (asignacion.proyecto_id !== input.proyectoId || asignacion.etapa_id !== input.etapaId) {
+    return { ok: false, error: "La asignación no coincide con el proyecto y la etapa" };
+  }
+
+  const etapaInfo = asignacion.etapas as unknown as { tipo: string } | null;
+  const tipoEtapa = etapaInfo?.tipo;
+  const etapaReal: EtapaEvaluacion | null =
+    tipoEtapa === "preseleccion" ? "preseleccion"
+    : tipoEtapa === "bootcamp" || tipoEtapa === "semifinal" ? "semifinal"
+    : tipoEtapa === "demo_day" ? "final"
+    : null;
+
+  if (!etapaReal || input.etapa !== etapaReal) {
+    return { ok: false, error: "La rúbrica no corresponde a la etapa asignada" };
+  }
+
+  const slugsPermitidos = new Set(criteriosDe(etapaReal).map((criterio) => criterio.slug));
+  const nivelesPermitidos = new Set<number>([1, 2, 3, 4]);
+  const nivelesEntrada = Object.entries(input.niveles);
+  if (nivelesEntrada.some(([slug, nivel]) =>
+    !slugsPermitidos.has(slug as CriterioSlug) ||
+    typeof nivel !== "number" ||
+    !nivelesPermitidos.has(nivel)
+  )) {
+    return { ok: false, error: "Hay niveles de desempeño inválidos para esta etapa" };
+  }
+
+  // Bootcamp se puede guardar como progreso, pero solo se finaliza cuando la
+  // entrega de esa misma etapa está enviada.
+  if (input.finalizar && (tipoEtapa === "bootcamp" || tipoEtapa === "semifinal")) {
+    const { data: entrega, error: entregaError } = await supabase
+      .from("entregas")
+      .select("estado")
+      .eq("proyecto_id", asignacion.proyecto_id)
+      .eq("etapa_id", asignacion.etapa_id)
+      .maybeSingle();
+
+    if (entregaError) {
+      return { ok: false, error: "No se pudo verificar el estado de la entrega Bootcamp" };
+    }
+    if (entrega?.estado !== "enviada") {
+      return { ok: false, error: "La evaluación solo se puede finalizar cuando la entrega Bootcamp está enviada" };
+    }
+  }
+
+  if (input.finalizar && !estaCompleta(input.niveles, etapaReal)) {
     return { ok: false, error: "Faltan criterios por calificar" };
   }
 
-  // Los criterios y sus ponderaciones vienen de la rúbrica, no de la base:
-  // así no hay forma de que la suma de pesos se desvíe de 100.
-  const puntajeFinal = calcularPuntaje(input.niveles, input.etapa);
-
+  const puntajeFinal = calcularPuntaje(input.niveles, etapaReal);
   const payload = {
-    asignacion_id: input.asignacionId,              // FK a asignaciones
-    proyecto_id: input.proyectoId,
+    asignacion_id: asignacion.id,
+    proyecto_id: asignacion.proyecto_id,
     evaluador_id: user.id,
-    etapa_id: input.etapaId,                        // FK a etapas
-    puntajes: input.niveles,                        // { slug: nivel 1-4 }
-    puntaje_ponderado: puntajeFinal,                // escala 0-100
+    etapa_id: asignacion.etapa_id,
+    puntajes: input.niveles,
+    puntaje_ponderado: puntajeFinal,
     comentario_fortalezas: input.fortalezas,
     comentario_mejoras: input.mejoras,
     estado: input.finalizar ? "finalizada" : "en_progreso",
     ...(input.finalizar && { finalizada_at: new Date().toISOString() }),
   };
 
-  // UPSERT usando asignacion_id como conflict target (1 evaluación por asignación)
   const { error } = await supabase
     .from("evaluaciones")
     .upsert(payload, { onConflict: "asignacion_id" });
 
   if (error) return { ok: false, error: error.message };
 
-  // Actualizar la asignación también para reflejar el progreso en el dashboard
   await supabase
     .from("asignaciones")
     .update({ estado: input.finalizar ? "finalizada" : "en_progreso" })
-    .eq("id", input.asignacionId);
+    .eq("id", asignacion.id)
+    .eq("evaluador_id", user.id);
 
   revalidatePath("/app/evaluacion");
-  return { ok: true, proyectoId: input.proyectoId };
+  revalidatePath("/app/evaluacion/proyectos");
+  revalidatePath("/app/evaluacion/mis-evaluaciones");
+  return { ok: true, proyectoId: asignacion.proyecto_id };
 }
