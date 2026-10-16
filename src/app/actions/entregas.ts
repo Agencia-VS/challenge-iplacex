@@ -16,6 +16,13 @@ import { randomUUID } from "node:crypto";
 const BUCKET = "archivos";
 const SIGNED_TTL = 60 * 60; // 1 hora
 const MAX_NOMBRE_ARCHIVO_LENGTH = 255;
+const ARCHIVO_ENTREGA_NAME = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-[a-zA-Z0-9._-]+$/i;
+
+function esRutaEntrega(proyectoId: string, entregaId: string, path: unknown): path is string {
+  if (typeof path !== "string") return false;
+  const prefijo = `entregas/${proyectoId}/${entregaId}/`;
+  return path.startsWith(prefijo) && ARCHIVO_ENTREGA_NAME.test(path.slice(prefijo.length));
+}
 
 async function getSupabase() {
   const cookieStore = await cookies();
@@ -81,7 +88,9 @@ async function ensureEntrega(
     .maybeSingle();
   if (existente) return { ok: true, entregaId: existente.id };
 
-  const { data: creada, error } = await supabase
+  // Las escrituras usan service role solo después de validar propietario y etapa.
+  const admin = createAdminClient();
+  const { data: creada, error } = await admin
     .from("entregas")
     .insert({
       proyecto_id: proyectoId,
@@ -91,7 +100,17 @@ async function ensureEntrega(
     })
     .select("id")
     .single();
-  if (error) return { ok: false, error: error.message };
+
+  if (error?.code === "23505") {
+    const { data: carrera } = await supabase
+      .from("entregas")
+      .select("id")
+      .eq("proyecto_id", proyectoId)
+      .eq("etapa_id", etapaId)
+      .maybeSingle();
+    if (carrera) return { ok: true, entregaId: carrera.id };
+  }
+  if (error || !creada) return { ok: false, error: error?.message ?? "No se pudo crear la entrega" };
   return { ok: true, entregaId: creada.id };
 }
 
@@ -128,7 +147,8 @@ export async function guardarEntrega(input: GuardarEntregaInput): Promise<Entreg
   }
   const videoIdYoutube = videoUrl ? extractYoutubeId(videoUrl) : null;
 
-  const { error } = await supabase
+  const admin = createAdminClient();
+  const { error } = await admin
     .from("entregas")
     .update({
       video_url: videoUrl,
@@ -218,8 +238,7 @@ export async function registrarArchivoEntrega(
   if (!ensured.ok) return ensured;
 
   const nombre = input.archivoNombre?.trim();
-  const prefijoPermitido = `entregas/${input.proyectoId}/${ensured.entregaId}/`;
-  if (!nombre || !input.storagePath?.startsWith(prefijoPermitido)) {
+  if (!nombre || !esRutaEntrega(input.proyectoId, ensured.entregaId, input.storagePath)) {
     return { ok: false, error: "No se pudo verificar el archivo subido" };
   }
   if (nombre.length > MAX_NOMBRE_ARCHIVO_LENGTH) {
@@ -240,7 +259,7 @@ export async function registrarArchivoEntrega(
     return { ok: false, error: "Cada archivo puede pesar hasta 25 MB y no puede estar vacío" };
   }
 
-  const { data: fila, error: insertError } = await supabase
+  const { data: fila, error: insertError } = await admin
     .from("archivos")
     .insert({
       proyecto_id: input.proyectoId,
@@ -272,19 +291,34 @@ export async function eliminarArchivoEntrega(archivoId: string): Promise<Elimina
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "No autenticado" };
 
-  // La RLS de `archivos` solo deja ver/borrar los del propio proyecto.
+  // RLS limita la lectura; antes de borrar con service role validamos de nuevo
+  // que el proyecto pertenezca al usuario autenticado.
   const { data: archivo } = await supabase
     .from("archivos")
-    .select("id, url")
+    .select("id, url, proyecto_id, entrega_id")
     .eq("id", archivoId)
     .maybeSingle();
   if (!archivo) return { ok: false, error: "Archivo no encontrado" };
 
-  const { error } = await supabase.from("archivos").delete().eq("id", archivoId);
-  if (error) return { ok: false, error: error.message };
+  const { data: proyecto } = await supabase
+    .from("proyectos")
+    .select("id")
+    .eq("id", archivo.proyecto_id)
+    .eq("postulante_id", user.id)
+    .maybeSingle();
+  if (!proyecto) return { ok: false, error: "Solo el titular del proyecto puede eliminar este archivo" };
 
   const admin = createAdminClient();
-  await admin.storage.from(BUCKET).remove([archivo.url]);
+  const { error } = await admin
+    .from("archivos")
+    .delete()
+    .eq("id", archivoId)
+    .eq("proyecto_id", proyecto.id);
+  if (error) return { ok: false, error: error.message };
+
+  if (archivo.entrega_id && esRutaEntrega(proyecto.id, archivo.entrega_id, archivo.url)) {
+    await admin.storage.from(BUCKET).remove([archivo.url]);
+  }
 
   revalidatePath("/app/postulante/entregas");
   return { ok: true };
@@ -326,15 +360,12 @@ export async function firmarArchivos(
     .in("url", solicitadas);
 
   if (error || !archivos?.length) return {};
-  const prefijo = `entregas/${entrega.proyecto_id}/${entrega.id}/`;
-  const nombreSeguro = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-[a-zA-Z0-9._-]+$/i;
   const permitidas = [...new Set(
     archivos
       .filter((archivo) =>
         archivo.proyecto_id === entrega.proyecto_id &&
         archivo.entrega_id === entrega.id &&
-        archivo.url.startsWith(prefijo) &&
-        nombreSeguro.test(archivo.url.slice(prefijo.length))
+        esRutaEntrega(entrega.proyecto_id, entrega.id, archivo.url)
       )
       .map((archivo) => archivo.url),
   )];
