@@ -63,6 +63,15 @@ CREATE POLICY "eval_propia" ON public.evaluaciones
 CREATE POLICY "eval_admin_super" ON public.evaluaciones
   FOR SELECT USING (public.get_my_rol() IN ('admin', 'comite_tecnico'));
 
+DROP POLICY IF EXISTS "archivos_postulante" ON public.archivos;
+CREATE POLICY "archivos_postulante" ON public.archivos
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.proyectos p
+      WHERE p.id = archivos.proyecto_id AND p.postulante_id = (select auth.uid())
+    )
+  );
+
 DROP POLICY IF EXISTS "archivos_staff_select" ON public.archivos;
 CREATE POLICY "archivos_staff_select" ON public.archivos
   FOR SELECT USING (
@@ -80,6 +89,15 @@ CREATE POLICY "archivos_staff_select" ON public.archivos
               AND e.etapa_id = a.etapa_id
           )
         )
+    )
+  );
+
+DROP POLICY IF EXISTS "entregas_postulante" ON public.entregas;
+CREATE POLICY "entregas_postulante" ON public.entregas
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.proyectos p
+      WHERE p.id = entregas.proyecto_id AND p.postulante_id = (select auth.uid())
     )
   );
 
