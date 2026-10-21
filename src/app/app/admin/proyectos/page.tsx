@@ -3,8 +3,9 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { roleHomePath } from "@/lib/roles";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { ProyectosPanel } from "@/components/app/proyectos-panel";
-import type { ProyectoPanelRow, EvaluadorSimple, EtapaEvaluacionSimple } from "@/components/app/proyectos-panel";
+import type { ProyectoPanelRow, EvaluadorSimple, EtapaEvaluacionSimple, EntregaPanelRow, ArchivoEntregaPanelRow } from "@/components/app/proyectos-panel";
 import { resolveEstadoBadge, resolveTransiciones, type EstadoBadgeConfig, type TransicionEstado } from "@/lib/estados";
 
 export const metadata: Metadata = { title: "Proyectos · Admin" };
@@ -37,6 +38,80 @@ export default async function AdminProyectosPage() {
     `)
     .order("created_at", { ascending: false });
 
+  type RawEntrega = {
+    id: string;
+    proyecto_id: string;
+    etapa_id: number;
+    estado: string | null;
+    enviada_at: string | null;
+    video_url: string | null;
+    contexto: string | null;
+  };
+  type RawArchivoEntrega = {
+    id: string;
+    proyecto_id: string;
+    entrega_id: string | null;
+    nombre: string;
+    url: string;
+    tamano: number | null;
+  };
+
+  // Solo el panel admin puede leer estas entregas y firmar sus archivos.
+  const proyectoIds = ((rawProyectos ?? []) as { id: string }[]).map((p) => p.id);
+  const admin = createAdminClient();
+  let rawEntregas: RawEntrega[] = [];
+  let rawArchivos: RawArchivoEntrega[] = [];
+  if (proyectoIds.length > 0) {
+    const [{ data: entregasData }, { data: archivosData }] = await Promise.all([
+      admin.from("entregas")
+        .select("id, proyecto_id, etapa_id, estado, enviada_at, video_url, contexto")
+        .in("proyecto_id", proyectoIds),
+      admin.from("archivos")
+        .select("id, proyecto_id, entrega_id, nombre, url, tamano")
+        .in("proyecto_id", proyectoIds)
+        .not("entrega_id", "is", null),
+    ]);
+    rawEntregas = (entregasData ?? []) as RawEntrega[];
+    rawArchivos = (archivosData ?? []) as RawArchivoEntrega[];
+  }
+
+  const urlsFirmadas: Record<string, string> = {};
+  for (let inicio = 0; inicio < rawArchivos.length; inicio += 100) {
+    const grupo = rawArchivos.slice(inicio, inicio + 100);
+    const { data: firmadas } = await admin.storage
+      .from("archivos")
+      .createSignedUrls(grupo.map((archivo) => archivo.url), 60 * 60);
+    (firmadas ?? []).forEach((archivo) => {
+      if (archivo.path && archivo.signedUrl) urlsFirmadas[archivo.path] = archivo.signedUrl;
+    });
+  }
+
+  const archivosPorEntrega = new Map<string, ArchivoEntregaPanelRow[]>();
+  rawArchivos.forEach((archivo) => {
+    if (!archivo.entrega_id) return;
+    const archivos = archivosPorEntrega.get(archivo.entrega_id) ?? [];
+    archivos.push({
+      id: archivo.id,
+      nombre: archivo.nombre,
+      tamano: archivo.tamano,
+      url: urlsFirmadas[archivo.url] ?? "",
+    });
+    archivosPorEntrega.set(archivo.entrega_id, archivos);
+  });
+  const entregasPorProyecto = new Map<string, EntregaPanelRow[]>();
+  rawEntregas.forEach((entrega) => {
+    const entregas = entregasPorProyecto.get(entrega.proyecto_id) ?? [];
+    entregas.push({
+      etapa_id: entrega.etapa_id,
+      estado: entrega.estado,
+      enviada_at: entrega.enviada_at,
+      video_url: entrega.video_url,
+      contexto: entrega.contexto,
+      archivos: archivosPorEntrega.get(entrega.id) ?? [],
+    });
+    entregasPorProyecto.set(entrega.proyecto_id, entregas);
+  });
+
   // Evaluadores disponibles
   const { data: rawEvaluadores } = await supabase
     .from("usuarios")
@@ -49,7 +124,7 @@ export default async function AdminProyectosPage() {
   const { data: rawEtapas } = await supabase
     .from("etapas")
     .select("id, nombre, tipo, fecha_inicio, fecha_fin, convocatoria_id")
-    .in("tipo", ["preseleccion", "bootcamp", "demo_day"])
+    .in("tipo", ["preseleccion", "bootcamp", "semifinal", "demo_day"])
     .order("fecha_inicio", { ascending: true });
 
   type RawEtapa = {
@@ -64,7 +139,7 @@ export default async function AdminProyectosPage() {
   const ahora = new Date().getTime();
   const etapasEvaluacion: EtapaEvaluacionSimple[] = ((rawEtapas ?? []) as RawEtapa[]).map((item) => ({
     id: item.id,
-    nombre: item.nombre ?? (item.tipo === "demo_day" ? "Demo day" : "Preselección"),
+    nombre: item.nombre ?? (item.tipo === "demo_day" ? "Demo Day" : item.tipo === "bootcamp" || item.tipo === "semifinal" ? "Bootcamp y mentorías" : "Preselección"),
     tipo: item.tipo,
     fecha_inicio: item.fecha_inicio,
     fecha_fin: item.fecha_fin,
@@ -128,6 +203,7 @@ export default async function AdminProyectosPage() {
     postulante: p.postulante?.nombre ?? p.postulante?.email ?? null,
     asignaciones: p.asignaciones ?? [],
     evaluaciones: p.evaluaciones ?? [],
+    entregas: entregasPorProyecto.get(p.id) ?? [],
   }));
 
   const evaluadores: EvaluadorSimple[] = ((rawEvaluadores ?? []) as {

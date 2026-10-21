@@ -77,6 +77,10 @@ test('verifica etapa, convocatoria, estado, existencia y rol antes de escribir',
     const { save, calls } = setup(options); assert.equal((await save(input)).ok, false); assert.equal(calls.some(c => c.kind === 'write'), false);
   }
 });
+test('acepta la etapa semifinal legacy como evaluación del bootcamp', async () => {
+  const { save } = setup({ etapa: { id: 7, convocatoria_id: 2, tipo: 'semifinal' } });
+  assert.equal((await save(input)).ok, true);
+});
 test('asigna el producto cartesiano con una escritura y preserva las evaluaciones existentes', async () => {
   const { save, calls, existing } = setup();
   const result = await save({ ...input, proyectoIds: [p1, p2, p1], evaluadorIds: [e1, e2, e1] });
