@@ -989,7 +989,7 @@ export function ProyectosPanel({
                                     </Badge>
                                     {entregaEtapa.enviada_at && (
                                       <span className="text-[11px] text-brand-ink-muted">
-                                        {new Date(entregaEtapa.enviada_at).toLocaleString("es-CL")}
+                                        {new Date(entregaEtapa.enviada_at).toLocaleString("es-CL", { timeZone: "America/Santiago" })}
                                       </span>
                                     )}
                                   </div>
