@@ -51,7 +51,7 @@ export async function asignarProyectosMasivamente(input: {
   if (etapaError || proyectosError || evaluadoresError) {
     return { ok: false, error: "No pudimos verificar la selección. No se realizaron asignaciones." };
   }
-  if (!etapa || !["preseleccion", "bootcamp", "demo_day"].includes(etapa.tipo)) {
+  if (!etapa || !["preseleccion", "bootcamp", "semifinal", "demo_day"].includes(etapa.tipo)) {
     return { ok: false, error: "Selecciona una etapa de evaluación válida." };
   }
   if (proyectos?.length !== proyectoIds.length || proyectos.some(p =>

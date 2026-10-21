@@ -45,6 +45,22 @@ export interface EvaluacionSimple {
   estado: string;
 }
 
+export interface ArchivoEntregaPanelRow {
+  id: string;
+  nombre: string;
+  tamano: number | null;
+  url: string;
+}
+
+export interface EntregaPanelRow {
+  etapa_id: number;
+  estado: string | null;
+  enviada_at: string | null;
+  video_url: string | null;
+  contexto: string | null;
+  archivos: ArchivoEntregaPanelRow[];
+}
+
 export interface ProyectoPanelRow {
   id: string;
   convocatoria_id: number;
@@ -58,6 +74,7 @@ export interface ProyectoPanelRow {
   postulante: string | null;
   asignaciones: AsignacionSimple[];
   evaluaciones: EvaluacionSimple[];
+  entregas: EntregaPanelRow[];
 }
 
 type RankingRow = {
@@ -95,6 +112,13 @@ function csvCell(value: string | number | null) {
   return '"' + text.replaceAll('"', '""') + '"';
 }
 
+function formatoTamano(bytes: number | null) {
+  if (bytes === null || !Number.isFinite(bytes) || bytes <= 0) return "";
+  return bytes >= 1024 * 1024
+    ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+    : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
 export function ProyectosPanel({
   proyectos,
   evaluadores,
@@ -126,6 +150,10 @@ export function ProyectosPanel({
 
   const [vertical, setVertical] = useState(0);
   const [busqueda, setBusqueda] = useState("");
+  const [filtroEstado, setFiltroEstado] = useState("");
+  const [filtroEvaluacion, setFiltroEvaluacion] = useState("");
+  const [filtroEntrega, setFiltroEntrega] = useState("");
+  const [filtroResultado, setFiltroResultado] = useState("");
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set());
   const [evaluadoresSeleccionados, setEvaluadoresSeleccionados] = useState<Set<string>>(new Set());
   const [asignando, setAsignando] = useState(false);
@@ -140,11 +168,8 @@ export function ProyectosPanel({
     ? proyectos.filter(p => p.convocatoria_id === etapaSeleccionada.convocatoria_id)
     : proyectos;
   const query = normalizarBusqueda(busqueda);
-  const visibles = proyectosEtapa.filter(p => coincideVertical(p.categoria_numero, vertical) &&
+  const proyectosBusqueda = proyectosEtapa.filter(p => coincideVertical(p.categoria_numero, vertical) &&
     normalizarBusqueda([p.codigo_ciego, p.nombre_proyecto, p.postulante].filter(Boolean).join(" ")).includes(query));
-  const idsVisibles = new Set(visibles.map(p => p.id));
-  const asignables = visibles.filter(p => proyectoAsignable(p.estado_postulacion));
-  const todosSeleccionados = asignables.length > 0 && asignables.every(p => seleccionados.has(p.id));
 
   function cambiarSeleccion(id: string) {
     setSeleccionados(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
@@ -335,6 +360,69 @@ export function ProyectosPanel({
   const rankingPorProyecto = new Map<string, RankingRow>(
     rankingRows.map((row) => [row.id, row] as const),
   );
+  const tipoEtapa = etapaSeleccionada?.tipo ?? "";
+  const etapaAdmiteEntrega = ["bootcamp", "semifinal", "demo_day"].includes(tipoEtapa);
+  const estadosDisponibles = [...new Set(proyectosEtapa.map((p) => p.estado_postulacion))].sort();
+
+  function estadoEvaluacionDe(proyecto: ProyectoPanelRow) {
+    const asignaciones = proyecto.asignaciones.filter((a) => a.etapa_id === activeEtapaId);
+    if (asignaciones.length === 0) return "sin_asignar";
+    const evaluaciones = proyecto.evaluaciones.filter((e) => e.etapa_id === activeEtapaId);
+    const finalizadas = evaluaciones.filter((e) => e.estado === "finalizada").length;
+    if (finalizadas >= esperado) return "completa";
+    if (finalizadas > 0 || evaluaciones.some((e) => e.estado === "en_progreso")) return "en_progreso";
+    return "pendiente";
+  }
+
+  function resultadoDeEtapa(proyecto: ProyectoPanelRow) {
+    if (tipoEtapa === "preseleccion") {
+      const ranking = rankingPorProyecto.get(proyecto.id);
+      if (ranking?.pasa) return "pasa";
+      if (ranking?.elegible) return "fuera_cupo";
+      return "pendiente";
+    }
+    if (tipoEtapa === "bootcamp" || tipoEtapa === "semifinal") {
+      if (proyecto.estado_postulacion === "finalista") return "finalista";
+      if (proyecto.estado_postulacion === "no_finalista") return "no_finalista";
+      return "pendiente";
+    }
+    if (tipoEtapa === "demo_day") {
+      return proyecto.estado_postulacion === "premiado" ? "premiado" : "pendiente";
+    }
+    return "";
+  }
+
+  const opcionesResultado: [string, string][] = tipoEtapa === "preseleccion"
+    ? [["pasa", "Pasa al bootcamp"], ["fuera_cupo", "Fuera del cupo"], ["pendiente", "Pendiente o no elegible"]]
+    : tipoEtapa === "bootcamp" || tipoEtapa === "semifinal"
+    ? [["finalista", "Finalista"], ["no_finalista", "No finalista"], ["pendiente", "Decisión pendiente"]]
+    : tipoEtapa === "demo_day"
+    ? [["premiado", "Premiado"], ["pendiente", "Decisión pendiente"]]
+    : [];
+
+  const visibles = proyectosBusqueda.filter((proyecto) => {
+    if (filtroEstado && proyecto.estado_postulacion !== filtroEstado) return false;
+    if (filtroEvaluacion && estadoEvaluacionDe(proyecto) !== filtroEvaluacion) return false;
+    if (filtroEntrega) {
+      const entrega = proyecto.entregas.find((item) => item.etapa_id === activeEtapaId);
+      const enviada = entrega?.estado === "enviada";
+      if (filtroEntrega === "enviada" && !enviada) return false;
+      if (filtroEntrega === "pendiente" && enviada) return false;
+    }
+    if (filtroResultado && resultadoDeEtapa(proyecto) !== filtroResultado) return false;
+    return true;
+  });
+  const idsVisibles = new Set(visibles.map((p) => p.id));
+  const asignables = visibles.filter((p) => proyectoAsignable(p.estado_postulacion));
+  const todosSeleccionados = asignables.length > 0 && asignables.every((p) => seleccionados.has(p.id));
+  const proyectosConEntregaEsperada = tipoEtapa === "bootcamp" || tipoEtapa === "semifinal"
+    ? proyectosEtapa.filter((p) => ["preseleccionado", "finalista", "premiado"].includes(p.estado_postulacion))
+    : tipoEtapa === "demo_day"
+    ? proyectosEtapa.filter((p) => ["finalista", "premiado"].includes(p.estado_postulacion))
+    : [];
+  const entregasEnviadas = proyectosConEntregaEsperada.filter((p) =>
+    p.entregas.some((item) => item.etapa_id === activeEtapaId && item.estado === "enviada")
+  ).length;
   const proyectosOrdenados = [...visibles].sort((a, b) => {
     const aRow = rankingPorProyecto.get(a.id);
     const bRow = rankingPorProyecto.get(b.id);
@@ -416,6 +504,10 @@ export function ProyectosPanel({
               setSelectedEtapaId(nextId);
               setSeleccionados(new Set());
               setExpandedId(null);
+              setFiltroEstado("");
+              setFiltroEvaluacion("");
+              setFiltroEntrega("");
+              setFiltroResultado("");
               setError(null);
               setSuccess(null);
             }}
@@ -450,6 +542,13 @@ export function ProyectosPanel({
         )}
       </div>
 
+      {etapaAdmiteEntrega && (
+        <div className="flex flex-wrap gap-2" aria-label="Resumen de entregas">
+          <Badge tone="success">{entregasEnviadas} / {proyectosConEntregaEsperada.length} entregas enviadas</Badge>
+          <Badge tone="neutral">{proyectosConEntregaEsperada.length - entregasEnviadas} pendientes</Badge>
+        </div>
+      )}
+
       <VerticalTabs value={vertical} onChange={value => { setVertical(value); setSeleccionados(new Set()); setExpandedId(null); }}
         numeros={proyectosEtapa.map(p => p.categoria_numero)} disabled={ocupado} panelId="proyectos-por-vertical" />
       <label className="block text-sm font-medium text-brand-ink-soft">
@@ -457,6 +556,46 @@ export function ProyectosPanel({
         <input type="search" value={busqueda} disabled={ocupado} onChange={event => { setBusqueda(event.target.value); setSeleccionados(new Set()); setExpandedId(null); }}
           placeholder="Buscar en la vertical seleccionada" className="mt-2 block w-full rounded-lg border border-brand-line bg-brand-surface-raised px-4 py-3 text-brand-ink sm:max-w-md" />
       </label>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <label className="text-xs font-medium text-brand-ink-soft">Estado del proyecto
+          <select value={filtroEstado} onChange={event => { setFiltroEstado(event.target.value); setSeleccionados(new Set()); setExpandedId(null); }} className="mt-1 block w-full rounded-lg border border-brand-line bg-brand-surface-raised px-3 py-2.5 text-sm text-brand-ink">
+            <option value="">Todos los estados</option>
+            {estadosDisponibles.map(estado => <option key={estado} value={estado}>{estadoBadge[estado]?.label ?? estado}</option>)}
+          </select>
+        </label>
+        <label className="text-xs font-medium text-brand-ink-soft">Evaluación en esta etapa
+          <select value={filtroEvaluacion} onChange={event => { setFiltroEvaluacion(event.target.value); setSeleccionados(new Set()); setExpandedId(null); }} className="mt-1 block w-full rounded-lg border border-brand-line bg-brand-surface-raised px-3 py-2.5 text-sm text-brand-ink">
+            <option value="">Todos los avances</option>
+            <option value="sin_asignar">Sin evaluador asignado</option>
+            <option value="pendiente">Pendiente de evaluación</option>
+            <option value="en_progreso">Evaluación en progreso</option>
+            <option value="completa">Evaluación completa</option>
+          </select>
+        </label>
+        {etapaAdmiteEntrega && (
+          <label className="text-xs font-medium text-brand-ink-soft">Material de la etapa
+            <select value={filtroEntrega} onChange={event => { setFiltroEntrega(event.target.value); setSeleccionados(new Set()); setExpandedId(null); }} className="mt-1 block w-full rounded-lg border border-brand-line bg-brand-surface-raised px-3 py-2.5 text-sm text-brand-ink">
+              <option value="">Todas las entregas</option>
+              <option value="enviada">Entrega enviada</option>
+              <option value="pendiente">Pendiente o sin entrega</option>
+            </select>
+          </label>
+        )}
+        {opcionesResultado.length > 0 && (
+          <label className="text-xs font-medium text-brand-ink-soft">Resultado de la ronda
+            <select value={filtroResultado} onChange={event => { setFiltroResultado(event.target.value); setSeleccionados(new Set()); setExpandedId(null); }} className="mt-1 block w-full rounded-lg border border-brand-line bg-brand-surface-raised px-3 py-2.5 text-sm text-brand-ink">
+              <option value="">Todos los resultados</option>
+              {opcionesResultado.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </label>
+        )}
+      </div>
+      {(filtroEstado || filtroEvaluacion || filtroEntrega || filtroResultado) && (
+        <button type="button" onClick={() => { setFiltroEstado(""); setFiltroEvaluacion(""); setFiltroEntrega(""); setFiltroResultado(""); setSeleccionados(new Set()); setExpandedId(null); }} className="text-xs font-semibold text-brand-accent hover:underline">
+          Limpiar filtros
+        </button>
+      )}
+      <p className="text-xs text-brand-ink-muted" role="status">{visibles.length} de {proyectosEtapa.length} proyectos coinciden con los filtros.</p>
       <div id="proyectos-por-vertical" role="tabpanel" aria-label="Proyectos de la vertical seleccionada" className="space-y-4">
       {activeEtapaId !== null && (
         <Card className="min-w-0 overflow-hidden">
@@ -467,7 +606,7 @@ export function ProyectosPanel({
                 {esPreseleccion ? "Selección para el bootcamp" : activeEtapaNombre ?? "Evaluación"}
               </h2>
               <p className="mt-1 max-w-2xl text-[12px] text-brand-ink-muted">
-                Ranking general de la etapa, filtrado por la vertical y búsqueda seleccionadas. Los puestos y el cupo no se recalculan por vertical. Ordenado por el promedio de las evaluaciones finalizadas. Los proyectos descalificados o con evaluación incompleta no ocupan un puesto elegible.
+                Ranking general de la etapa. Los filtros de vertical, búsqueda y avance solo delimitan las filas visibles; no recalculan los puestos ni el cupo. El promedio usa evaluaciones finalizadas de esta etapa.
               </p>
             </div>
             <Button type="button" variant="secondary" size="sm" onClick={exportarRanking}>
@@ -591,7 +730,7 @@ export function ProyectosPanel({
 
       <Card className="min-w-0 overflow-hidden p-0">
         <div className="min-w-0 overflow-x-auto overscroll-x-contain">
-          <table className="min-w-[1100px] w-full text-left text-[13px]">
+          <table className="min-w-[1240px] w-full text-left text-[13px]">
             <thead>
               <tr className="border-b border-brand-line text-[11px] uppercase tracking-wider text-brand-ink-muted">
                 <th className="px-4 py-3">
@@ -608,6 +747,7 @@ export function ProyectosPanel({
                 <th className="px-5 py-3 font-semibold">Puntaje</th>
                 <th className="px-5 py-3 font-semibold">Estado</th>
                 <th className="px-5 py-3 font-semibold">Evaluadores</th>
+                <th className="px-5 py-3 font-semibold">Entrega</th>
                 <th className="px-5 py-3 font-semibold">Acciones</th>
               </tr>
             </thead>
@@ -618,6 +758,9 @@ export function ProyectosPanel({
                 const asignacionesEtapa = activeEtapaId === null
                   ? []
                   : p.asignaciones.filter((a) => a.etapa_id === activeEtapaId);
+                const entregaEtapa = activeEtapaId === null
+                  ? undefined
+                  : p.entregas.find((entrega) => entrega.etapa_id === activeEtapaId);
                 const asignados = new Set(
                   evaluadores
                     .filter((ev) => {
@@ -700,6 +843,23 @@ export function ProyectosPanel({
                         </p>
                       </td>
                       <td className="px-5 py-3">
+                        {!etapaAdmiteEntrega ? (
+                          <span className="text-[12px] text-brand-ink-muted">No aplica</span>
+                        ) : (
+                          <div className="space-y-1">
+                            <Badge tone={entregaEtapa?.estado === "enviada" ? "success" : entregaEtapa ? "warning" : "neutral"}>
+                              {entregaEtapa?.estado === "enviada" ? "Enviada" : entregaEtapa ? "Borrador" : "Sin entrega"}
+                            </Badge>
+                            {entregaEtapa && (
+                              <span className="block text-[11px] text-brand-ink-muted">
+                                {entregaEtapa.archivos.length} archivo{entregaEtapa.archivos.length !== 1 ? "s" : ""}
+                                {entregaEtapa.video_url ? " · video pitch" : ""}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-5 py-3">
                         <button
                           onClick={() => setExpandedId(isExpanded ? null : p.id)}
                           className="text-[12px] font-medium text-brand-accent hover:underline"
@@ -712,8 +872,8 @@ export function ProyectosPanel({
                     {/* Panel expandido */}
                     {isExpanded && (
                       <tr key={`${p.id}-expanded`} className="bg-brand-surface-soft">
-                        <td colSpan={10} className="px-6 py-5">
-                          <div className="grid min-w-0 gap-6 md:grid-cols-2">
+                        <td colSpan={11} className="px-6 py-5">
+                          <div className="grid min-w-0 gap-6 md:grid-cols-2 xl:grid-cols-3">
                             {/* Asignar evaluadores */}
                             <div className="min-w-0">
                               <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
@@ -813,6 +973,55 @@ export function ProyectosPanel({
                                 </div>
                               )}
                             </div>
+
+                            {/* Ver material enviado por el equipo */}
+                            <div className="min-w-0">
+                              <p className="brand-eyebrow mb-3 text-brand-ink-soft">Material de la etapa</p>
+                              {!etapaAdmiteEntrega ? (
+                                <p className="text-[12px] text-brand-ink-muted">Esta ronda no recibe entregas.</p>
+                              ) : !entregaEtapa ? (
+                                <p className="text-[12px] text-brand-ink-muted">Aún no hay material guardado para esta etapa.</p>
+                              ) : (
+                                <div className="space-y-3">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <Badge tone={entregaEtapa.estado === "enviada" ? "success" : "warning"}>
+                                      {entregaEtapa.estado === "enviada" ? "Entrega enviada" : "Borrador"}
+                                    </Badge>
+                                    {entregaEtapa.enviada_at && (
+                                      <span className="text-[11px] text-brand-ink-muted">
+                                        {new Date(entregaEtapa.enviada_at).toLocaleString("es-CL", { timeZone: "America/Santiago" })}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {entregaEtapa.video_url && (
+                                    <a href={entregaEtapa.video_url} target="_blank" rel="noreferrer" className="inline-flex text-[12px] font-semibold text-brand-accent underline">
+                                      Abrir video pitch ↗
+                                    </a>
+                                  )}
+                                  {entregaEtapa.contexto && (
+                                    <p className="whitespace-pre-wrap text-[12px] text-brand-ink-soft">{entregaEtapa.contexto}</p>
+                                  )}
+                                  {entregaEtapa.archivos.length > 0 ? (
+                                    <ul className="space-y-2">
+                                      {entregaEtapa.archivos.map((archivo) => (
+                                        <li key={archivo.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-brand-line bg-brand-surface-raised px-3 py-2">
+                                          <span className="min-w-0 truncate text-[12px] text-brand-ink">{archivo.nombre}{archivo.tamano ? <span className="text-brand-ink-muted"> · {formatoTamano(archivo.tamano)}</span> : null}</span>
+                                          {archivo.url ? (
+                                            <a href={archivo.url} target="_blank" rel="noreferrer" className="shrink-0 text-[11px] font-semibold text-brand-accent underline">
+                                              Descargar
+                                            </a>
+                                          ) : (
+                                            <span className="text-[11px] text-brand-ink-muted">Enlace no disponible</span>
+                                          )}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  ) : (
+                                    <p className="text-[12px] text-brand-ink-muted">Sin archivos adjuntos.</p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </td>
                       </tr>
@@ -820,7 +1029,7 @@ export function ProyectosPanel({
                   </Fragment>
                 );
               })}
-              {!proyectosOrdenados.length && <tr><td colSpan={10} className="px-5 py-10 text-center text-brand-ink-muted">No hay proyectos que coincidan con los filtros.</td></tr>}
+              {!proyectosOrdenados.length && <tr><td colSpan={11} className="px-5 py-10 text-center text-brand-ink-muted">No hay proyectos que coincidan con los filtros.</td></tr>}
             </tbody>
           </table>
         </div>
