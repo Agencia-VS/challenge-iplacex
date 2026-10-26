@@ -89,7 +89,9 @@ const NAV_CONFIG: Record<Rol, NavGroup[]> = {
       section: "Plataforma",
       items: [
         { href: "/app/admin", label: "Dashboard", icon: LayoutDashboard },
-        { href: "/app/admin/proyectos", label: "Proyectos", icon: FolderKanban },
+        { href: "/app/admin/proyectos", label: "Postulaciones", icon: FolderKanban },
+        { href: "/app/admin/rondas", label: "Rondas y evaluaciones", icon: ClipboardList },
+        { href: "/app/admin/entregas", label: "Entregas", icon: Upload },
         { href: "/app/admin/evaluadores", label: "Evaluadores", icon: Users },
       ],
     },
