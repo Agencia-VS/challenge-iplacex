@@ -137,6 +137,7 @@ export default async function AdminDashboard() {
               <a href="/app/admin/convocatoria" className="text-brand-accent underline">Crear convocatoria →</a>
             </p>
           ) : (
+          <>
           <details className="group">
             <summary className="cursor-pointer text-[13px] font-semibold text-brand-accent">Ver detalle por estado</summary>
             <ul className="mt-4 space-y-3">
@@ -161,6 +162,7 @@ export default async function AdminDashboard() {
           <a href="/app/admin/proyectos?estado=no_preseleccionado" className="mt-4 inline-flex rounded-full border border-brand-line px-3.5 py-2 text-[12px] font-semibold text-brand-primary hover:bg-brand-surface-soft">
             Ver no preseleccionados ({proyectos.filter(p => p.estado_postulacion === "no_preseleccionado").length})
           </a>
+          </>
           )}
           <Button variant="ghost" href="/app/admin/proyectos" className="mt-5 self-start text-[12px]">
             Ver todos los emprendimientos o proyectos →
