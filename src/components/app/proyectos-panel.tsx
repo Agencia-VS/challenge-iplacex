@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -77,6 +77,41 @@ export interface ProyectoPanelRow {
   entregas: EntregaPanelRow[];
 }
 
+export type ProyectosPanelVista = "postulaciones" | "rondas" | "entregas";
+
+function AdminPanelNav({ vista }: { vista: ProyectosPanelVista }) {
+  const links: { vista: ProyectosPanelVista; href: string; label: string }[] = [
+    { vista: "postulaciones", href: "/app/admin/proyectos", label: "Postulaciones" },
+    { vista: "rondas", href: "/app/admin/rondas", label: "Rondas y evaluaciones" },
+    { vista: "entregas", href: "/app/admin/entregas", label: "Entregas" },
+  ];
+  return (
+    <nav aria-label="Vistas de administración" className="flex flex-wrap gap-2 border-b border-brand-line pb-3">
+      {links.map((link) => (
+        <a key={link.vista} href={link.href} aria-current={vista === link.vista ? "page" : undefined}
+          className={cn("rounded-full px-3.5 py-2 text-[13px] font-semibold transition-colors", vista === link.vista ? "bg-brand-primary text-white" : "bg-brand-surface-soft text-brand-ink-soft hover:text-brand-primary")}>
+          {link.label}
+        </a>
+      ))}
+    </nav>
+  );
+}
+
+function PaginacionProyectos({ pagina, totalPaginas, total, onCambiar }: { pagina: number; totalPaginas: number; total: number; onCambiar: (pagina: number) => void }) {
+  const inicio = total === 0 ? 0 : (pagina - 1) * 25 + 1;
+  const fin = Math.min(total, pagina * 25);
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-brand-line px-4 py-3 text-[12px] text-brand-ink-muted">
+      <span>Mostrando {inicio}–{fin} de {total}</span>
+      <div className="flex items-center gap-2">
+        <Button type="button" size="sm" variant="ghost" disabled={pagina <= 1} onClick={() => onCambiar(pagina - 1)}>Anterior</Button>
+        <span aria-live="polite">Página {pagina} de {totalPaginas}</span>
+        <Button type="button" size="sm" variant="ghost" disabled={pagina >= totalPaginas} onClick={() => onCambiar(pagina + 1)}>Siguiente</Button>
+      </div>
+    </div>
+  );
+}
+
 type RankingRow = {
   id: string;
   codigo: string;
@@ -129,6 +164,7 @@ export function ProyectosPanel({
   estadoBadge = ESTADO_BADGE_DEFAULT,
   transiciones = TRANSICIONES_DEFAULT,
   evaluacionesEsperadas = 2,
+  vistaInicial = "rondas",
 }: {
   proyectos: ProyectoPanelRow[];
   evaluadores: EvaluadorSimple[];
@@ -137,6 +173,7 @@ export function ProyectosPanel({
   etapaFutura?: boolean;
   etapaNombre?: string | null;
   evaluacionesEsperadas?: number;
+  vistaInicial?: ProyectosPanelVista;
   estadoBadge?: Record<string, EstadoBadgeConfig>;
   transiciones?: Record<string, TransicionEstado[]>;
 }) {
@@ -147,7 +184,8 @@ export function ProyectosPanel({
   const [success, setSuccess] = useState<string | null>(null);
   const [assignmentOverrides, setAssignmentOverrides] = useState<Record<string, boolean>>({});
   const [selectedEtapaId, setSelectedEtapaId] = useState<number | null>(etapaEvalId);
-
+  const [pagina, setPagina] = useState(1);
+  const pageSize = 25;
   const [vertical, setVertical] = useState(0);
   const [busqueda, setBusqueda] = useState("");
   const [filtroEstado, setFiltroEstado] = useState("");
@@ -159,6 +197,20 @@ export function ProyectosPanel({
   const [asignando, setAsignando] = useState(false);
   const enviando = useRef(false);
   const ocupado = asignando || Object.keys(loadingKeys).length > 0;
+
+  const queryAplicada = useRef(false);
+
+  useEffect(() => {
+    if (queryAplicada.current) return;
+    queryAplicada.current = true;
+    const estadoDesdeUrl = new URLSearchParams(window.location.search).get("estado");
+    if (estadoDesdeUrl && Object.prototype.hasOwnProperty.call({ ...ESTADO_BADGE_DEFAULT, ...estadoBadge }, estadoDesdeUrl)) setFiltroEstado(estadoDesdeUrl);
+  }, [estadoBadge]);
+
+  useEffect(() => {
+    setPagina(1);
+  }, [selectedEtapaId, vertical, busqueda, filtroEstado, filtroEvaluacion, filtroEntrega, filtroResultado]);
+
 
   const etapaSeleccionada = etapasEvaluacion.find((item) => item.id === selectedEtapaId) ?? null;
   const activeEtapaId = etapaSeleccionada?.id ?? etapaEvalId;
@@ -264,20 +316,6 @@ export function ProyectosPanel({
     }
   }
 
-  if (proyectos.length === 0) {
-    return (
-      <Card variant="ghost" className="flex flex-col items-center gap-4 py-20 text-center">
-        <span className="text-[56px]">📭</span>
-        <div>
-          <p className="text-[17px] font-semibold text-brand-primary">0 postulaciones</p>
-          <p className="mt-1 text-[13px] text-brand-ink-muted">
-            Aún no hay proyectos registrados en esta convocatoria.
-          </p>
-        </div>
-      </Card>
-    );
-  }
-
   const enviados = proyectosEtapa.filter(p => p.estado_postulacion !== "borrador").length;
   const esperado = Math.max(1, evaluacionesEsperadas || 2);
   const esPreseleccion = etapaSeleccionada?.tipo === "preseleccion";
@@ -362,7 +400,7 @@ export function ProyectosPanel({
   );
   const tipoEtapa = etapaSeleccionada?.tipo ?? "";
   const etapaAdmiteEntrega = ["bootcamp", "semifinal", "demo_day"].includes(tipoEtapa);
-  const estadosDisponibles = [...new Set(proyectosEtapa.map((p) => p.estado_postulacion))].sort();
+  const estadosDisponibles = [...new Set([...Object.keys(ESTADO_BADGE_DEFAULT), ...Object.keys(estadoBadge)])].sort((a, b) => (estadoBadge[a]?.label ?? a).localeCompare(estadoBadge[b]?.label ?? b, "es"));
 
   function estadoEvaluacionDe(proyecto: ProyectoPanelRow) {
     const asignaciones = proyecto.asignaciones.filter((a) => a.etapa_id === activeEtapaId);
@@ -376,6 +414,7 @@ export function ProyectosPanel({
 
   function resultadoDeEtapa(proyecto: ProyectoPanelRow) {
     if (tipoEtapa === "preseleccion") {
+      if (proyecto.estado_postulacion === "no_preseleccionado") return "no_preseleccionado";
       const ranking = rankingPorProyecto.get(proyecto.id);
       if (ranking?.pasa) return "pasa";
       if (ranking?.elegible) return "fuera_cupo";
@@ -393,7 +432,7 @@ export function ProyectosPanel({
   }
 
   const opcionesResultado: [string, string][] = tipoEtapa === "preseleccion"
-    ? [["pasa", "Pasa al bootcamp"], ["fuera_cupo", "Fuera del cupo"], ["pendiente", "Pendiente o no elegible"]]
+    ? [["pasa", "Pasa al bootcamp"], ["no_preseleccionado", "No preseleccionado"], ["fuera_cupo", "Fuera del cupo"], ["pendiente", "Pendiente o no elegible"]]
     : tipoEtapa === "bootcamp" || tipoEtapa === "semifinal"
     ? [["finalista", "Finalista"], ["no_finalista", "No finalista"], ["pendiente", "Decisión pendiente"]]
     : tipoEtapa === "demo_day"
@@ -413,8 +452,6 @@ export function ProyectosPanel({
     return true;
   });
   const idsVisibles = new Set(visibles.map((p) => p.id));
-  const asignables = visibles.filter((p) => proyectoAsignable(p.estado_postulacion));
-  const todosSeleccionados = asignables.length > 0 && asignables.every((p) => seleccionados.has(p.id));
   const proyectosConEntregaEsperada = tipoEtapa === "bootcamp" || tipoEtapa === "semifinal"
     ? proyectosEtapa.filter((p) => ["preseleccionado", "finalista", "premiado"].includes(p.estado_postulacion))
     : tipoEtapa === "demo_day"
@@ -431,6 +468,12 @@ export function ProyectosPanel({
     }
     return a.codigo_ciego.localeCompare(b.codigo_ciego);
   });
+  const totalPaginas = Math.max(1, Math.ceil(proyectosOrdenados.length / pageSize));
+  const proyectosPagina = proyectosOrdenados.slice((pagina - 1) * pageSize, pagina * pageSize);
+  const asignablesPagina = proyectosPagina.filter((p) => proyectoAsignable(p.estado_postulacion));
+  const todosSeleccionados = asignablesPagina.length > 0 && asignablesPagina.every((p) => seleccionados.has(p.id));
+  const rankingFiltrado = rankingRows.filter((row) => idsVisibles.has(row.id));
+  const rankingPagina = rankingFiltrado.slice((pagina - 1) * pageSize, pagina * pageSize);
 
   function exportarRanking() {
     if (activeEtapaId === null) return;
@@ -474,8 +517,157 @@ export function ProyectosPanel({
     URL.revokeObjectURL(url);
   }
 
+  if (vistaInicial === "postulaciones") {
+    return (
+      <div className="min-w-0 space-y-4">
+        <AdminPanelNav vista={vistaInicial} />
+        {error && <div role="alert" className="rounded-[var(--r-md)] border border-st-danger/30 bg-st-danger/5 px-4 py-3 text-[13px] text-st-danger">{error}</div>}
+        {success && <div role="status" className="rounded-[var(--r-md)] border border-st-success/30 bg-st-success/5 px-4 py-3 text-[13px] text-st-success">✓ {success}</div>}
+        {etapasEvaluacion.length > 0 && (
+          <Card variant="ghost" className="flex flex-wrap items-center justify-between gap-3 p-4">
+            <div><p className="brand-eyebrow text-brand-ink-soft">Convocatoria y ronda</p><p className="mt-1 text-[12px] text-brand-ink-muted">Elige una ronda para ver las postulaciones de su convocatoria.</p></div>
+            <select disabled={ocupado} value={activeEtapaId ?? ""} onChange={(event) => { setSelectedEtapaId(event.target.value ? Number(event.target.value) : null); setSeleccionados(new Set()); setExpandedId(null); }} className="w-full max-w-full rounded-[var(--r-sm)] border border-brand-line bg-brand-surface-raised px-3 py-2 text-[13px] text-brand-ink sm:w-auto sm:min-w-[240px]" aria-label="Filtrar por ronda">
+              {etapasEvaluacion.map((etapa) => <option key={etapa.id} value={etapa.id}>{etapa.nombre}</option>)}
+            </select>
+          </Card>
+        )}
+        <div className="flex flex-wrap gap-2" aria-label="Filtrar postulaciones por estado">
+          {[
+            { estado: "", label: "Todas", cantidad: proyectosEtapa.length },
+            { estado: "en_revision", label: "En revisión", cantidad: proyectosEtapa.filter((p) => p.estado_postulacion === "en_revision").length },
+            { estado: "preseleccionado", label: "Preseleccionados", cantidad: proyectosEtapa.filter((p) => p.estado_postulacion === "preseleccionado").length },
+            { estado: "no_preseleccionado", label: "No preseleccionados", cantidad: proyectosEtapa.filter((p) => p.estado_postulacion === "no_preseleccionado").length },
+          ].map((item) => (
+            <button key={item.estado || "todos"} type="button" onClick={() => { setFiltroEstado(item.estado); setSeleccionados(new Set()); setExpandedId(null); }}
+              aria-pressed={filtroEstado === item.estado}
+              className={cn("rounded-full border px-3.5 py-2 text-[12px] font-semibold transition-colors", filtroEstado === item.estado ? "border-brand-primary bg-brand-primary text-white" : "border-brand-line bg-brand-surface-raised text-brand-ink-soft hover:border-brand-secondary")}>
+              {item.label} <span className="ml-1 opacity-75">{item.cantidad}</span>
+            </button>
+          ))}
+        </div>
+        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+          <label className="block text-sm font-medium text-brand-ink-soft">Buscar proyecto, código o postulante
+            <input type="search" value={busqueda} disabled={ocupado} onChange={(event) => setBusqueda(event.target.value)} placeholder="Escribe un nombre o código" className="mt-2 block w-full rounded-lg border border-brand-line bg-brand-surface-raised px-4 py-3 text-brand-ink" />
+          </label>
+          <div className="min-w-0"><VerticalTabs value={vertical} onChange={(value) => { setVertical(value); setSeleccionados(new Set()); setExpandedId(null); }} numeros={proyectosEtapa.map((p) => p.categoria_numero)} disabled={ocupado} panelId="postulaciones-por-vertical" /></div>
+        </div>
+        <details className="rounded-[var(--r-md)] border border-brand-line bg-brand-surface-raised px-4 py-3">
+          <summary className="cursor-pointer text-[13px] font-semibold text-brand-ink">Más filtros</summary>
+          <label className="mt-3 block max-w-sm text-xs font-medium text-brand-ink-soft">Estado de la postulación
+            <select value={filtroEstado} onChange={(event) => setFiltroEstado(event.target.value)} className="mt-1 block w-full rounded-lg border border-brand-line bg-brand-surface-raised px-3 py-2.5 text-sm text-brand-ink">
+              <option value="">Todos los estados</option>
+              {estadosDisponibles.map((estado) => <option key={estado} value={estado}>{estadoBadge[estado]?.label ?? estado}</option>)}
+            </select>
+          </label>
+        </details>
+        <p className="text-xs text-brand-ink-muted" role="status">{visibles.length} de {proyectosEtapa.length} postulaciones coinciden.</p>
+        <Card className="min-w-0 overflow-hidden p-0">
+          <div className="min-w-0 overflow-x-auto">
+            <table className="min-w-[860px] w-full text-left text-[13px]">
+              <thead><tr className="border-b border-brand-line text-[11px] uppercase tracking-wider text-brand-ink-muted">
+                <th className="px-4 py-3 font-semibold">Código</th><th className="px-4 py-3 font-semibold">Proyecto</th><th className="px-4 py-3 font-semibold">Postulante</th><th className="px-4 py-3 font-semibold">Categoría</th><th className="px-4 py-3 font-semibold">Estado</th><th className="px-4 py-3 font-semibold">Enviada</th><th className="px-4 py-3 font-semibold">Actualizar</th>
+              </tr></thead>
+              <tbody>
+                {proyectosPagina.map((p) => {
+                  const conf = estadoBadge[p.estado_postulacion] ?? { label: p.estado_postulacion, tone: "neutral" as const };
+                  const siguientes = transiciones[p.estado_postulacion] ?? [];
+                  return <tr key={p.id} className="border-b border-brand-line/60 hover:bg-brand-surface-soft/50">
+                    <td className="px-4 py-3 font-[family-name:var(--font-mono)] font-bold text-brand-secondary">{p.codigo_ciego}</td>
+                    <td className="px-4 py-3 font-semibold text-brand-ink">{p.nombre_proyecto ?? <span className="italic text-brand-ink-muted">Sin nombre</span>}</td>
+                    <td className="px-4 py-3 text-brand-ink-soft">{p.postulante ?? "—"}</td>
+                    <td className="px-4 py-3 text-brand-ink-soft">{p.categoria ?? "—"}</td>
+                    <td className="px-4 py-3"><Badge tone={conf.tone}>{conf.label}</Badge></td>
+                    <td className="px-4 py-3 text-brand-ink-muted">{p.enviada_at ? new Date(p.enviada_at).toLocaleDateString("es-CL", { timeZone: "America/Santiago" }) : "—"}</td>
+                    <td className="px-4 py-3">
+                      {siguientes.length > 0 ? <select aria-label={"Actualizar estado de " + p.codigo_ciego} disabled={ocupado || Boolean(loadingKeys["estado-" + p.id])} value="" onChange={(event) => { if (event.target.value) void handleEstado(p.id, event.target.value); }} className="max-w-[210px] rounded-lg border border-brand-line bg-brand-surface-raised px-2 py-1.5 text-xs">
+                        <option value="">Cambiar estado…</option>{siguientes.map((siguiente) => <option key={siguiente.estado} value={siguiente.estado}>{siguiente.label}</option>)}
+                      </select> : <span className="text-xs text-brand-ink-muted">Sin acciones</span>}
+                    </td>
+                  </tr>;
+                })}
+                {!proyectosPagina.length && <tr><td colSpan={7} className="px-4 py-10 text-center text-brand-ink-muted">No hay postulaciones con este filtro.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+          <PaginacionProyectos pagina={pagina} totalPaginas={totalPaginas} total={proyectosOrdenados.length} onCambiar={setPagina} />
+        </Card>
+      </div>
+    );
+  }
+
+  if (vistaInicial === "entregas") {
+    return (
+      <div className="min-w-0 space-y-4">
+        <AdminPanelNav vista={vistaInicial} />
+        {error && <div role="alert" className="rounded-[var(--r-md)] border border-st-danger/30 bg-st-danger/5 px-4 py-3 text-[13px] text-st-danger">{error}</div>}
+        {success && <div role="status" className="rounded-[var(--r-md)] border border-st-success/30 bg-st-success/5 px-4 py-3 text-[13px] text-st-success">✓ {success}</div>}
+        {etapasEvaluacion.length > 0 && (
+          <Card variant="ghost" className="flex flex-wrap items-center justify-between gap-3 p-4">
+            <div><p className="brand-eyebrow text-brand-ink-soft">Ronda de entregas</p><p className="mt-1 text-[12px] text-brand-ink-muted">Elige la etapa y revisa el material enviado por los equipos.</p></div>
+            <select disabled={ocupado} value={activeEtapaId ?? ""} onChange={(event) => { setSelectedEtapaId(event.target.value ? Number(event.target.value) : null); setFiltroEntrega(""); setExpandedId(null); }} className="w-full max-w-full rounded-[var(--r-sm)] border border-brand-line bg-brand-surface-raised px-3 py-2 text-[13px] text-brand-ink sm:w-auto sm:min-w-[240px]" aria-label="Filtrar entregas por ronda">
+              {etapasEvaluacion.map((etapa) => <option key={etapa.id} value={etapa.id}>{etapa.nombre}</option>)}
+            </select>
+          </Card>
+        )}
+        <div className="flex flex-wrap gap-2">
+          <Badge tone="success">{entregasEnviadas} entregas enviadas</Badge>
+          <Badge tone="neutral">{Math.max(0, proyectosConEntregaEsperada.length - entregasEnviadas)} pendientes</Badge>
+          <Badge tone="neutral">{proyectosEtapa.length} proyectos en la convocatoria</Badge>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px]">
+          <label className="block text-sm font-medium text-brand-ink-soft">Buscar proyecto, código o postulante
+            <input type="search" value={busqueda} disabled={ocupado} onChange={(event) => setBusqueda(event.target.value)} placeholder="Escribe un nombre o código" className="mt-2 block w-full rounded-lg border border-brand-line bg-brand-surface-raised px-4 py-3 text-brand-ink" />
+          </label>
+          <label className="text-xs font-medium text-brand-ink-soft">Estado de entrega
+            <select value={filtroEntrega} onChange={(event) => setFiltroEntrega(event.target.value)} className="mt-2 block w-full rounded-lg border border-brand-line bg-brand-surface-raised px-3 py-2.5 text-sm text-brand-ink">
+              <option value="">Todas</option><option value="enviada">Enviada</option><option value="pendiente">Pendiente o borrador</option>
+            </select>
+          </label>
+        </div>
+        <p className="text-xs text-brand-ink-muted" role="status">{visibles.length} de {proyectosEtapa.length} proyectos coinciden.</p>
+        <Card className="min-w-0 overflow-hidden p-0">
+          <div className="min-w-0 overflow-x-auto">
+            <table className="min-w-[850px] w-full text-left text-[13px]">
+              <thead><tr className="border-b border-brand-line text-[11px] uppercase tracking-wider text-brand-ink-muted">
+                <th className="px-4 py-3 font-semibold">Código</th><th className="px-4 py-3 font-semibold">Proyecto</th><th className="px-4 py-3 font-semibold">Postulante</th><th className="px-4 py-3 font-semibold">Estado de entrega</th><th className="px-4 py-3 font-semibold">Material</th>
+              </tr></thead>
+              <tbody>
+                {proyectosPagina.map((p) => {
+                  const entrega = p.entregas.find((item) => item.etapa_id === activeEtapaId);
+                  const estado = entrega?.estado === "enviada" ? "Enviada" : entrega ? "Borrador" : etapaAdmiteEntrega ? "Sin entrega" : "No aplica";
+                  const tone = entrega?.estado === "enviada" ? "success" : entrega ? "warning" : "neutral";
+                  return <tr key={p.id} className="border-b border-brand-line/60 align-top hover:bg-brand-surface-soft/50">
+                    <td className="px-4 py-3 font-[family-name:var(--font-mono)] font-bold text-brand-secondary">{p.codigo_ciego}</td>
+                    <td className="px-4 py-3"><span className="font-semibold text-brand-ink">{p.nombre_proyecto ?? "Sin nombre"}</span><span className="mt-1 block text-xs text-brand-ink-muted">{p.categoria ?? "Sin categoría"}</span></td>
+                    <td className="px-4 py-3 text-brand-ink-soft">{p.postulante ?? "—"}</td>
+                    <td className="px-4 py-3"><Badge tone={tone}>{estado}</Badge>{entrega?.enviada_at && <span className="mt-1 block text-[11px] text-brand-ink-muted">{new Date(entrega.enviada_at).toLocaleDateString("es-CL", { timeZone: "America/Santiago" })}</span>}</td>
+                    <td className="px-4 py-3">
+                      {!entrega ? <span className="text-xs text-brand-ink-muted">Sin material</span> : (
+                        <details className="max-w-lg rounded-lg border border-brand-line bg-brand-surface-raised px-3 py-2">
+                          <summary className="cursor-pointer text-xs font-semibold text-brand-accent">Ver entrega · {entrega.archivos.length} archivo{entrega.archivos.length !== 1 ? "s" : ""}{entrega.video_url ? " · video pitch" : ""}</summary>
+                          <div className="space-y-2 pt-3">
+                            {entrega.video_url && <a href={entrega.video_url} target="_blank" rel="noreferrer" className="block text-xs font-semibold text-brand-accent underline">Abrir video pitch público ↗</a>}
+                            {entrega.contexto && <p className="whitespace-pre-wrap text-xs text-brand-ink-soft">{entrega.contexto}</p>}
+                            {entrega.archivos.length ? <ul className="space-y-1">{entrega.archivos.map((archivo) => <li key={archivo.id} className="flex items-center justify-between gap-3 text-xs"><span className="min-w-0 truncate">{archivo.nombre}{archivo.tamano ? " · " + formatoTamano(archivo.tamano) : ""}</span>{archivo.url ? <a href={archivo.url} target="_blank" rel="noreferrer" className="shrink-0 font-semibold text-brand-accent underline">Descargar</a> : <span className="text-brand-ink-muted">Enlace no disponible</span>}</li>)}</ul> : <p className="text-xs text-brand-ink-muted">Sin archivos adjuntos.</p>}
+                          </div>
+                        </details>
+                      )}
+                    </td>
+                  </tr>;
+                })}
+                {!proyectosPagina.length && <tr><td colSpan={5} className="px-4 py-10 text-center text-brand-ink-muted">No hay entregas que coincidan con estos filtros.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+          <PaginacionProyectos pagina={pagina} totalPaginas={totalPaginas} total={proyectosOrdenados.length} onCambiar={setPagina} />
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="min-w-0 space-y-4">
+      <AdminPanelNav vista={vistaInicial} />
       {error && (
         <div role="alert" className="rounded-[var(--r-md)] border border-st-danger/30 bg-st-danger/5 px-4 py-3 text-[13px] text-st-danger">
           {error}
@@ -491,9 +683,9 @@ export function ProyectosPanel({
       {etapasEvaluacion.length > 0 && (
         <Card variant="ghost" className="min-w-0 flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="brand-eyebrow text-brand-ink-soft">Etapa de evaluación</p>
+            <p className="brand-eyebrow text-brand-ink-soft">Ronda de evaluación</p>
             <p className="mt-1 text-[12px] text-brand-ink-muted">
-              Elige la ronda en la que quieres distribuir los proyectos.
+              Elige una ronda para revisar resultados y asignaciones.
             </p>
           </div>
           <select
@@ -556,7 +748,9 @@ export function ProyectosPanel({
         <input type="search" value={busqueda} disabled={ocupado} onChange={event => { setBusqueda(event.target.value); setSeleccionados(new Set()); setExpandedId(null); }}
           placeholder="Buscar en la vertical seleccionada" className="mt-2 block w-full rounded-lg border border-brand-line bg-brand-surface-raised px-4 py-3 text-brand-ink sm:max-w-md" />
       </label>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <details className="rounded-[var(--r-md)] border border-brand-line bg-brand-surface-raised px-4 py-3">
+      <summary className="cursor-pointer text-[13px] font-semibold text-brand-ink">Filtros avanzados · { [filtroEstado, filtroEvaluacion, filtroEntrega, filtroResultado].filter(Boolean).length } activos</summary>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <label className="text-xs font-medium text-brand-ink-soft">Estado del proyecto
           <select value={filtroEstado} onChange={event => { setFiltroEstado(event.target.value); setSeleccionados(new Set()); setExpandedId(null); }} className="mt-1 block w-full rounded-lg border border-brand-line bg-brand-surface-raised px-3 py-2.5 text-sm text-brand-ink">
             <option value="">Todos los estados</option>
@@ -590,6 +784,7 @@ export function ProyectosPanel({
           </label>
         )}
       </div>
+      </details>
       {(filtroEstado || filtroEvaluacion || filtroEntrega || filtroResultado) && (
         <button type="button" onClick={() => { setFiltroEstado(""); setFiltroEvaluacion(""); setFiltroEntrega(""); setFiltroResultado(""); setSeleccionados(new Set()); setExpandedId(null); }} className="text-xs font-semibold text-brand-accent hover:underline">
           Limpiar filtros
@@ -598,7 +793,9 @@ export function ProyectosPanel({
       <p className="text-xs text-brand-ink-muted" role="status">{visibles.length} de {proyectosEtapa.length} proyectos coinciden con los filtros.</p>
       <div id="proyectos-por-vertical" role="tabpanel" aria-label="Proyectos de la vertical seleccionada" className="space-y-4">
       {activeEtapaId !== null && (
-        <Card className="min-w-0 overflow-hidden">
+        <details className="rounded-[var(--r-md)] border border-brand-line bg-brand-surface-raised p-3">
+        <summary className="cursor-pointer px-2 py-1 text-[13px] font-semibold text-brand-primary">Ver ranking de la ronda · {rankingFiltrado.length} proyectos</summary>
+        <Card className="mt-3 min-w-0 overflow-hidden">
           <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="brand-eyebrow text-brand-accent">Ranking de la etapa</p>
@@ -648,7 +845,7 @@ export function ProyectosPanel({
                 </tr>
               </thead>
               <tbody>
-                {rankingRows.filter(row => idsVisibles.has(row.id)).map((row) => (
+                {rankingPagina.map((row) => (
                   <tr
                     key={row.id}
                     className={cn(
@@ -696,9 +893,12 @@ export function ProyectosPanel({
             </table>
           </div>
         </Card>
+        </details>
       )}
 
-      <Card className="space-y-4">
+      <details className="rounded-[var(--r-md)] border border-brand-line bg-brand-surface-raised p-3">
+      <summary className="cursor-pointer px-2 py-1 text-[13px] font-semibold text-brand-primary">Asignación masiva · {seleccionados.size} proyectos seleccionados</summary>
+      <Card className="mt-3 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-brand-primary">Asignación masiva</h2>
@@ -727,6 +927,7 @@ export function ProyectosPanel({
         </div>
         <p className="text-xs text-brand-ink-muted">{seleccionados.size * evaluadoresSeleccionados.size} asignaciones posibles (máximo 1.000 por envío, hasta 500 proyectos y 50 evaluadores). Las existentes se conservan. Solo se pueden seleccionar proyectos enviados y vigentes de esta convocatoria.</p>
       </Card>
+      </details>
 
       <Card className="min-w-0 overflow-hidden p-0">
         <div className="min-w-0 overflow-x-auto overscroll-x-contain">
@@ -735,9 +936,9 @@ export function ProyectosPanel({
               <tr className="border-b border-brand-line text-[11px] uppercase tracking-wider text-brand-ink-muted">
                 <th className="px-4 py-3">
                   <input type="checkbox" aria-label="Seleccionar todos los proyectos visibles y asignables" checked={todosSeleccionados}
-                    ref={element => { if (element) element.indeterminate = seleccionados.size > 0 && !todosSeleccionados; }}
-                    disabled={ocupado || activeEtapaId === null || !asignables.length}
-                    onChange={() => setSeleccionados(todosSeleccionados ? new Set() : new Set(asignables.map(p => p.id)))} className="accent-brand-secondary" />
+                    ref={element => { if (element) element.indeterminate = asignablesPagina.some((proyecto) => seleccionados.has(proyecto.id)) && !todosSeleccionados; }}
+                    disabled={ocupado || activeEtapaId === null || !asignablesPagina.length}
+                    onChange={() => setSeleccionados((prev) => { const next = new Set(prev); for (const proyecto of asignablesPagina) { if (todosSeleccionados) next.delete(proyecto.id); else next.add(proyecto.id); } return next; })} className="accent-brand-secondary" />
                 </th>
                 <th className="px-5 py-3 font-semibold">Puesto</th>
                 <th className="px-5 py-3 font-semibold">Código</th>
@@ -752,7 +953,7 @@ export function ProyectosPanel({
               </tr>
             </thead>
             <tbody>
-              {proyectosOrdenados.map((p) => {
+              {proyectosPagina.map((p) => {
                 const conf = estadoBadge[p.estado_postulacion] ?? { label: p.estado_postulacion, tone: "neutral" as const };
                 const ranking = rankingPorProyecto.get(p.id);
                 const asignacionesEtapa = activeEtapaId === null
@@ -1034,6 +1235,7 @@ export function ProyectosPanel({
           </table>
         </div>
       </Card>
+      <PaginacionProyectos pagina={pagina} totalPaginas={totalPaginas} total={proyectosOrdenados.length} onCambiar={setPagina} />
       </div>
     </div>
   );

@@ -64,10 +64,16 @@ export default async function AdminDashboard() {
 
   // Agrupar por estado para el funnel
   const FUNNEL: { estado: string; label: string; tone: "warning" | "secondary" | "accent" | "primary" }[] = [
-    { estado: "borrador",    label: "Borrador",           tone: "warning" },
-    { estado: "enviada",     label: "Enviadas",           tone: "secondary"    },
-    { estado: "en_revision", label: "En revisión",        tone: "accent"  },
+    { estado: "borrador", label: "Borrador", tone: "warning" },
+    { estado: "enviada", label: "Enviadas", tone: "secondary" },
+    { estado: "en_revision", label: "En revisión", tone: "accent" },
+    { estado: "inadmisible", label: "Inadmisibles", tone: "warning" },
     { estado: "preseleccionado", label: "Preseleccionados", tone: "primary" },
+    { estado: "no_preseleccionado", label: "No preseleccionados", tone: "warning" },
+    { estado: "descalificado", label: "Descalificados", tone: "warning" },
+    { estado: "finalista", label: "Finalistas", tone: "primary" },
+    { estado: "no_finalista", label: "No finalistas", tone: "secondary" },
+    { estado: "premiado", label: "Premiados", tone: "accent" },
   ];
   const funnelData = FUNNEL.map(f => ({
     ...f,
@@ -88,7 +94,7 @@ export default async function AdminDashboard() {
   }
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-6">
       {/* Header */}
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
@@ -131,22 +137,30 @@ export default async function AdminDashboard() {
               <a href="/app/admin/convocatoria" className="text-brand-accent underline">Crear convocatoria →</a>
             </p>
           ) : (
-          <ul className="space-y-3">
-            {funnelData.map((e) => (
-              <li key={e.estado} className="flex items-center justify-between gap-4">
-                <span className="text-[13px] text-brand-ink-soft">{e.label}</span>
-                <div className="flex items-center gap-3">
-                  <div className="h-2 w-32 overflow-hidden rounded-full bg-brand-line-strong">
-                    <div
-                      className={`h-full rounded-full ${e.tone === "secondary" ? "bg-brand-secondary" : e.tone === "accent" ? "bg-brand-accent" : e.tone === "warning" ? "bg-st-warning" : "bg-brand-primary"} opacity-60`}
-                      style={{ width: totalPostulaciones > 0 ? `${(e.cantidad / totalPostulaciones) * 100}%` : "0%" }}
-                    />
-                  </div>
-                  <Badge tone={e.tone}>{e.cantidad}</Badge>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <details className="group">
+            <summary className="cursor-pointer text-[13px] font-semibold text-brand-accent">Ver detalle por estado</summary>
+            <ul className="mt-4 space-y-3">
+              {funnelData.map((e) => (
+                <li key={e.estado}>
+                  <a href={"/app/admin/proyectos?estado=" + e.estado} className="flex items-center justify-between gap-4 rounded-lg px-2 py-1.5 transition-colors hover:bg-brand-surface-soft">
+                    <span className="text-[13px] text-brand-ink-soft">{e.label}</span>
+                    <div className="flex items-center gap-3">
+                      <div className="h-2 w-32 overflow-hidden rounded-full bg-brand-line-strong">
+                        <div
+                          className={"h-full rounded-full " + (e.tone === "secondary" ? "bg-brand-secondary" : e.tone === "accent" ? "bg-brand-accent" : e.tone === "warning" ? "bg-st-warning" : "bg-brand-primary") + " opacity-60"}
+                          style={{ width: (totalPostulaciones > 0 ? (e.cantidad / totalPostulaciones) * 100 : 0) + "%" }}
+                        />
+                      </div>
+                      <Badge tone={e.tone}>{e.cantidad}</Badge>
+                    </div>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </details>
+          <a href="/app/admin/proyectos?estado=no_preseleccionado" className="mt-4 inline-flex rounded-full border border-brand-line px-3.5 py-2 text-[12px] font-semibold text-brand-primary hover:bg-brand-surface-soft">
+            Ver no preseleccionados ({proyectos.filter(p => p.estado_postulacion === "no_preseleccionado").length})
+          </a>
           )}
           <Button variant="ghost" href="/app/admin/proyectos" className="mt-5 self-start text-[12px]">
             Ver todos los emprendimientos o proyectos →
@@ -158,11 +172,11 @@ export default async function AdminDashboard() {
           <p className="brand-eyebrow text-white/60">Acciones rápidas</p>
           <ul className="space-y-2">
             {[
-              { label: "Subir bases de la convocatoria", href: "/app/admin/bases" },
-              { label: "Publicar convocatoria", href: "/app/admin/convocatoria" },
+              { label: "Revisar postulaciones", href: "/app/admin/proyectos" },
+              { label: "Evaluar una ronda", href: "/app/admin/rondas" },
+              { label: "Revisar entregas", href: "/app/admin/entregas" },
               { label: "Asignar evaluadores", href: "/app/admin/evaluadores" },
-              { label: "Avanzar ronda", href: "/app/admin/convocatoria" },
-              { label: "Exportar resultados", href: "/app/admin/proyectos" },
+              { label: "Gestionar convocatoria", href: "/app/admin/convocatoria" },
             ].map((a) => (
               <li key={a.href}>
                 <Button
