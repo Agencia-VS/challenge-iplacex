@@ -137,32 +137,32 @@ export default async function AdminDashboard() {
               <a href="/app/admin/convocatoria" className="text-brand-accent underline">Crear convocatoria →</a>
             </p>
           ) : (
-          <>
-          <details className="group">
-            <summary className="cursor-pointer text-[13px] font-semibold text-brand-accent">Ver detalle por estado</summary>
-            <ul className="mt-4 space-y-3">
-              {funnelData.map((e) => (
-                <li key={e.estado}>
-                  <a href={"/app/admin/proyectos?estado=" + e.estado} className="flex items-center justify-between gap-4 rounded-lg px-2 py-1.5 transition-colors hover:bg-brand-surface-soft">
-                    <span className="text-[13px] text-brand-ink-soft">{e.label}</span>
-                    <div className="flex items-center gap-3">
-                      <div className="h-2 w-32 overflow-hidden rounded-full bg-brand-line-strong">
-                        <div
-                          className={"h-full rounded-full " + (e.tone === "secondary" ? "bg-brand-secondary" : e.tone === "accent" ? "bg-brand-accent" : e.tone === "warning" ? "bg-st-warning" : "bg-brand-primary") + " opacity-60"}
-                          style={{ width: (totalPostulaciones > 0 ? (e.cantidad / totalPostulaciones) * 100 : 0) + "%" }}
-                        />
-                      </div>
-                      <Badge tone={e.tone}>{e.cantidad}</Badge>
-                    </div>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </details>
-          <a href="/app/admin/proyectos?estado=no_preseleccionado" className="mt-4 inline-flex rounded-full border border-brand-line px-3.5 py-2 text-[12px] font-semibold text-brand-primary hover:bg-brand-surface-soft">
-            Ver no preseleccionados ({proyectos.filter(p => p.estado_postulacion === "no_preseleccionado").length})
-          </a>
-          </>
+            <div>
+              <details className="group">
+                <summary className="cursor-pointer text-[13px] font-semibold text-brand-accent">Ver detalle por estado</summary>
+                <ul className="mt-4 space-y-3">
+                  {funnelData.map((e) => (
+                    <li key={e.estado}>
+                      <a href={"/app/admin/proyectos?estado=" + e.estado} className="flex items-center justify-between gap-4 rounded-lg px-2 py-1.5 transition-colors hover:bg-brand-surface-soft">
+                        <span className="text-[13px] text-brand-ink-soft">{e.label}</span>
+                        <div className="flex items-center gap-3">
+                          <div className="h-2 w-32 overflow-hidden rounded-full bg-brand-line-strong">
+                            <div
+                              className={"h-full rounded-full " + (e.tone === "secondary" ? "bg-brand-secondary" : e.tone === "accent" ? "bg-brand-accent" : e.tone === "warning" ? "bg-st-warning" : "bg-brand-primary") + " opacity-60"}
+                              style={{ width: (totalPostulaciones > 0 ? (e.cantidad / totalPostulaciones) * 100 : 0) + "%" }}
+                            />
+                          </div>
+                          <Badge tone={e.tone}>{e.cantidad}</Badge>
+                        </div>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+              <a href="/app/admin/proyectos?registro=1&estado=no_preseleccionado" className="mt-4 inline-flex rounded-full border border-brand-line px-3.5 py-2 text-[12px] font-semibold text-brand-primary hover:bg-brand-surface-soft">
+                Ver registro de no preseleccionados ({proyectos.filter(p => p.estado_postulacion === "no_preseleccionado").length})
+              </a>
+            </div>
           )}
           <Button variant="ghost" href="/app/admin/proyectos" className="mt-5 self-start text-[12px]">
             Ver todos los emprendimientos o proyectos →
