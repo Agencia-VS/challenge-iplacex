@@ -6,6 +6,21 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { coincideVertical, normalizarBusqueda } from "@/lib/verticales";
+import { descargarCsv } from "@/lib/csv";
+
+type ArchivoEntregaExport = {
+  nombre: string;
+  tamano: number | null;
+  url: string;
+};
+
+type EntregaExport = {
+  estado: string | null;
+  fecha: string | null;
+  videoUrl: string | null;
+  contexto: string | null;
+  archivos: ArchivoEntregaExport[];
+};
 
 export type EvaluadorFila = {
   id: string;
@@ -13,15 +28,27 @@ export type EvaluadorFila = {
   nombre?: string | null;
   categoria: string | null;
   categoriaNumero: number | null;
+  resumen?: string | null;
+  problema?: string | null;
+  segmento?: string | null;
+  solucion?: string | null;
+  ods?: number[];
   etapaId: number | null;
   etapa: string;
   estado: string;
   puntaje: number | null;
   fecha?: string | null;
+  entrega?: EntregaExport | null;
   href: string | null;
 };
 
-export function EvaluadorTabla({ filas }: { filas: EvaluadorFila[] }) {
+export function EvaluadorTabla({
+  filas,
+  mostrarExportacion = true,
+}: {
+  filas: EvaluadorFila[];
+  mostrarExportacion?: boolean;
+}) {
   const [vertical, setVertical] = useState(0);
   const [busqueda, setBusqueda] = useState("");
   const [etapa, setEtapa] = useState("");
@@ -34,6 +61,35 @@ export function EvaluadorTabla({ filas }: { filas: EvaluadorFila[] }) {
     (!estado || f.estado === estado) && normalizarBusqueda(`${f.codigo} ${f.nombre ?? ""} ${f.categoria ?? ""}`).includes(normalizarBusqueda(busqueda)))
     .sort((a, b) => (prioridad[a.estado] ?? 0) - (prioridad[b.estado] ?? 0) || a.codigo.localeCompare(b.codigo, "es", { numeric: true }) || (a.etapaId ?? 0) - (b.etapaId ?? 0));
   const inputClass = "mt-1 block w-full rounded-lg border border-brand-line bg-brand-surface-raised px-3 py-2.5 text-sm text-brand-ink";
+
+  function exportarVisibles() {
+    descargarCsv(
+      `proyectos-asignados-${new Date().toISOString().slice(0, 10)}.csv`,
+      [
+        "Código ciego", "Proyecto", "Categoría", "Etapa asignada", "Estado de evaluación", "Puntaje /100",
+        "Resumen ejecutivo", "Problema u oportunidad", "Segmento de usuarios", "Solución propuesta", "ODS",
+        "Estado de entrega", "Fecha de entrega", "Video pitch público", "Respuesta de entrega", "Archivos de entrega",
+      ],
+      visibles.map((fila) => [
+        fila.codigo,
+        fila.nombre,
+        fila.categoria,
+        fila.etapa,
+        fila.estado,
+        fila.puntaje,
+        fila.resumen,
+        fila.problema,
+        fila.segmento,
+        fila.solucion,
+        fila.ods?.join(", ") ?? "",
+        fila.entrega?.estado ?? "Sin entrega",
+        fila.entrega?.fecha ? new Date(fila.entrega.fecha).toLocaleString("es-CL", { timeZone: "America/Santiago" }) : "",
+        fila.entrega?.videoUrl ?? "",
+        fila.entrega?.contexto ?? "",
+        fila.entrega?.archivos.map((archivo) => `${archivo.nombre}${archivo.tamano ? ` (${Math.ceil(archivo.tamano / 1024)} KB)` : ""}: ${archivo.url || "Enlace no disponible"}`).join(" | ") ?? "",
+      ]),
+    );
+  }
 
   return <div className="min-w-0 space-y-4">
     <VerticalTabs value={vertical} onChange={setVertical} numeros={porEtapa.map(f => f.categoriaNumero)} panelId={panelId} />
@@ -54,7 +110,12 @@ export function EvaluadorTabla({ filas }: { filas: EvaluadorFila[] }) {
         </select>
       </label>
     </div>
-    <p role="status" className="text-xs text-brand-ink-muted">{visibles.length} de {filas.length} asignaciones · Pendientes primero, luego por código.</p>
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <p role="status" className="text-xs text-brand-ink-muted">{visibles.length} de {filas.length} asignaciones · Pendientes primero, luego por código.</p>
+      {mostrarExportacion && <Button type="button" variant="secondary" size="sm" disabled={!visibles.length} onClick={exportarVisibles}>
+        Exportar vista (.csv)
+      </Button>}
+    </div>
     <div id={panelId} role="tabpanel" aria-label="Evaluaciones de la vertical seleccionada">
       <Card className="min-w-0 overflow-hidden p-0">
         <div className="overflow-x-auto overscroll-x-contain">

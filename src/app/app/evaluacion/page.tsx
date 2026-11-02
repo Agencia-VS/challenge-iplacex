@@ -130,7 +130,7 @@ export default async function EvaluadorDashboard() {
             </p>
           </div>
         ) : (
-        <div className="p-4"><EvaluadorTabla filas={asignaciones.map(a => ({
+        <div className="p-4"><EvaluadorTabla mostrarExportacion={false} filas={asignaciones.map(a => ({
           id: a.id, codigo: a.proyectos?.codigo_ciego ?? "—", nombre: a.proyectos?.nombre_proyecto,
           categoria: a.proyectos?.categorias?.nombre ?? null, categoriaNumero: a.proyectos?.categorias?.numero ?? null,
           etapaId: a.etapa_id, etapa: a.etapa?.nombre ?? "Etapa sin nombre", estado: evalMap.get(a.id)?.estado ?? "pendiente",

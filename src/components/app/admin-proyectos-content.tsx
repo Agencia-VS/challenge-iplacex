@@ -26,7 +26,8 @@ export async function AdminProyectosContent({ vistaInicial }: { vistaInicial: Pr
   const { data: rawProyectos } = await supabase
     .from("proyectos")
     .select(`
-      id, convocatoria_id, codigo_ciego, nombre_proyecto, estado_postulacion, created_at, enviada_at,
+      id, convocatoria_id, codigo_ciego, nombre_proyecto, resumen_ejecutivo, problema,
+      segmento_usuarios, solucion, ods, video_url, estado_postulacion, created_at, enviada_at,
       categorias ( nombre, numero ),
       postulante:postulante_id ( nombre, email ),
       asignaciones ( evaluador_id, etapa_id, estado ),
@@ -176,6 +177,12 @@ export async function AdminProyectosContent({ vistaInicial }: { vistaInicial: Pr
     id: string;
     codigo_ciego: string;
     nombre_proyecto: string | null;
+    resumen_ejecutivo: string | null;
+    problema: string | null;
+    segmento_usuarios: string | null;
+    solucion: string | null;
+    ods: number[] | null;
+    video_url: string | null;
     estado_postulacion: string;
     created_at: string;
     enviada_at: string | null;
@@ -192,6 +199,12 @@ export async function AdminProyectosContent({ vistaInicial }: { vistaInicial: Pr
     categoria_numero: p.categorias?.numero ?? null,
     codigo_ciego: p.codigo_ciego,
     nombre_proyecto: p.nombre_proyecto,
+    resumen_ejecutivo: p.resumen_ejecutivo,
+    problema: p.problema,
+    segmento_usuarios: p.segmento_usuarios,
+    solucion: p.solucion,
+    ods: p.ods,
+    video_url: p.video_url,
     estado_postulacion: p.estado_postulacion,
     created_at: p.created_at,
     enviada_at: p.enviada_at,
