@@ -16,6 +16,7 @@ import {
 
 import { VerticalTabs } from "@/components/app/vertical-tabs";
 import { coincideVertical, normalizarBusqueda, proyectoAsignable } from "@/lib/verticales";
+import { descargarCsv } from "@/lib/csv";
 
 export interface EvaluadorSimple {
   id: string;
@@ -67,6 +68,12 @@ export interface ProyectoPanelRow {
   categoria_numero: number | null;
   codigo_ciego: string;
   nombre_proyecto: string | null;
+  resumen_ejecutivo: string | null;
+  problema: string | null;
+  segmento_usuarios: string | null;
+  solucion: string | null;
+  ods: number[] | null;
+  video_url: string | null;
   estado_postulacion: string;
   created_at: string;
   enviada_at: string | null;
@@ -190,11 +197,6 @@ function desviacion(values: number[]) {
   return Math.sqrt(
     values.reduce((sum, value) => sum + (value - media) ** 2, 0) / values.length,
   );
-}
-
-function csvCell(value: string | number | null) {
-  const text = value === null ? "" : String(value);
-  return '"' + text.replaceAll('"', '""') + '"';
 }
 
 function formatoTamano(bytes: number | null) {
@@ -502,6 +504,57 @@ export function ProyectosPanel({
     return "";
   }
 
+  function exportarProyectosFiltrados() {
+    const nombreEtapa = (activeEtapaNombre ?? "proyectos")
+      .toLowerCase()
+      .replaceAll(/[^a-z0-9áéíóúñ]+/gi, "-")
+      .replace(/(^-|-$)/g, "");
+    const filas = proyectosOrdenados.map((proyecto) => {
+      const evaluacionesEtapa = proyecto.evaluaciones.filter((evaluacion) =>
+        evaluacion.etapa_id === activeEtapaId && evaluacion.estado === "finalizada" &&
+        typeof evaluacion.puntaje_ponderado === "number",
+      );
+      const puntaje = promedio(evaluacionesEtapa.map((evaluacion) => evaluacion.puntaje_ponderado as number));
+      const entregas = proyecto.entregas.map((entrega) => {
+        const etapa = etapasEvaluacion.find((item) => item.id === entrega.etapa_id);
+        return { entrega, etapa: etapa?.nombre ?? `Etapa ${entrega.etapa_id}` };
+      });
+      return [
+        activeEtapaNombre,
+        proyecto.codigo_ciego,
+        proyecto.nombre_proyecto,
+        proyecto.postulante,
+        proyecto.categoria,
+        proyecto.estado_postulacion,
+        proyecto.resumen_ejecutivo,
+        proyecto.problema,
+        proyecto.segmento_usuarios,
+        proyecto.solucion,
+        (proyecto.ods ?? []).join(", "),
+        proyecto.video_url,
+        estadoEvaluacionDe(proyecto),
+        puntaje === null ? "" : puntaje.toFixed(1),
+        entregas.map(({ entrega, etapa }) => `${etapa}: ${entrega.estado ?? "sin estado"}`).join(" | "),
+        entregas.filter(({ entrega }) => entrega.video_url).map(({ entrega, etapa }) => `${etapa}: ${entrega.video_url}`).join(" | "),
+        entregas.filter(({ entrega }) => entrega.contexto).map(({ entrega, etapa }) => `${etapa}: ${entrega.contexto}`).join(" | "),
+        entregas.flatMap(({ entrega, etapa }) => entrega.archivos.map((archivo) =>
+          `${etapa} · ${archivo.nombre}${archivo.tamano ? ` (${formatoTamano(archivo.tamano)})` : ""}: ${archivo.url || "Enlace no disponible"}`
+        )).join(" | "),
+      ];
+    });
+
+    descargarCsv(
+      `proyectos-${nombreEtapa || "etapa"}-${new Date().toISOString().slice(0, 10)}.csv`,
+      [
+        "Ronda seleccionada", "Código ciego", "Proyecto", "Postulante", "Categoría", "Estado del proyecto",
+        "Resumen ejecutivo", "Problema u oportunidad", "Segmento de usuarios", "Solución propuesta", "ODS",
+        "Video de postulación", "Estado de evaluación en ronda", "Puntaje de ronda /100", "Entregas por etapa",
+        "Videos pitch de entregas", "Respuestas de entregas", "Archivos de entregas",
+      ],
+      filas,
+    );
+  }
+
   const opcionesResultado: [string, string][] = tipoEtapa === "preseleccion"
     ? [["pasa", "Pasa al bootcamp"], ["no_preseleccionado", "No preseleccionado"], ["fuera_cupo", "Fuera del cupo"], ["pendiente", "Pendiente o no elegible"]]
     : tipoEtapa === "bootcamp" || tipoEtapa === "semifinal"
@@ -572,20 +625,15 @@ export function ProyectosPanel({
       row.promedio === null ? "" : row.sigma.toFixed(2).replace(".", ","),
       row.exclusion,
     ]);
-    const csv = "\uFEFF" + [encabezados, ...filas]
-      .map((fila) => fila.map((valor) => csvCell(valor)).join(";"))
-      .join("\r\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const enlace = document.createElement("a");
     const nombreEtapa = (activeEtapaNombre ?? "etapa")
       .toLowerCase()
       .replaceAll(/[^a-z0-9áéíóúñ]+/gi, "-")
       .replace(/(^-|-$)/g, "");
-    enlace.href = url;
-    enlace.download = "ranking-" + (nombreEtapa || "etapa") + "-" + new Date().toISOString().slice(0, 10) + ".csv";
-    enlace.click();
-    URL.revokeObjectURL(url);
+    descargarCsv(
+      `ranking-${nombreEtapa || "etapa"}-${new Date().toISOString().slice(0, 10)}.csv`,
+      encabezados,
+      filas,
+    );
   }
 
   if (vistaInicial === "postulaciones") {
@@ -618,7 +666,12 @@ export function ProyectosPanel({
             </select>
           </label>
         </details>
-        <p className="text-xs text-brand-ink-muted" role="status">{visibles.length} de {proyectosVista.length} {mostrarRegistro ? "registros históricos" : "proyectos en carrera"} coinciden.</p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs text-brand-ink-muted" role="status">{visibles.length} de {proyectosVista.length} {mostrarRegistro ? "registros históricos" : "proyectos en carrera"} coinciden.</p>
+          <Button type="button" variant="secondary" size="sm" disabled={!proyectosOrdenados.length} onClick={exportarProyectosFiltrados}>
+            Exportar vista (.csv)
+          </Button>
+        </div>
         <Card className="min-w-0 overflow-hidden p-0">
           <div className="min-w-0 overflow-x-auto">
             <table className="min-w-[860px] w-full text-left text-[13px]">
@@ -685,7 +738,12 @@ export function ProyectosPanel({
             </select>
           </label>
         </div>
-        <p className="text-xs text-brand-ink-muted" role="status">{visibles.length} de {proyectosVista.length} {mostrarRegistro ? "registros históricos" : "proyectos en carrera"} coinciden.</p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs text-brand-ink-muted" role="status">{visibles.length} de {proyectosVista.length} {mostrarRegistro ? "registros históricos" : "proyectos en carrera"} coinciden.</p>
+          <Button type="button" variant="secondary" size="sm" disabled={!proyectosOrdenados.length} onClick={exportarProyectosFiltrados}>
+            Exportar vista (.csv)
+          </Button>
+        </div>
         <Card className="min-w-0 overflow-hidden p-0">
           <div className="min-w-0 overflow-x-auto">
             <table className="min-w-[850px] w-full text-left text-[13px]">
@@ -847,7 +905,12 @@ export function ProyectosPanel({
           Limpiar filtros
         </button>
       )}
-      <p className="text-xs text-brand-ink-muted" role="status">{visibles.length} de {proyectosVista.length} {mostrarRegistro ? "registros históricos" : "proyectos en carrera"} coinciden con los filtros.</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-brand-ink-muted" role="status">{visibles.length} de {proyectosVista.length} {mostrarRegistro ? "registros históricos" : "proyectos en carrera"} coinciden con los filtros.</p>
+        <Button type="button" variant="secondary" size="sm" disabled={!proyectosOrdenados.length} onClick={exportarProyectosFiltrados}>
+          Exportar vista (.csv)
+        </Button>
+      </div>
       <div id="proyectos-por-vertical" role="tabpanel" aria-label="Proyectos de la vertical seleccionada" className="space-y-4">
       {activeEtapaId !== null && !mostrarRegistro && (
         <details className="rounded-[var(--r-md)] border border-brand-line bg-brand-surface-raised p-3">

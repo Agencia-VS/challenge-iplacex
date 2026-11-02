@@ -80,7 +80,7 @@ export default async function MisEvaluacionesPage() {
           </Button>
         </Card>
       ) : (
-        <EvaluadorTabla filas={evals.map(e => ({
+        <EvaluadorTabla mostrarExportacion={false} filas={evals.map(e => ({
           id: e.id, codigo: e.proyecto?.codigo_ciego ?? "—",
           categoria: e.proyecto?.categorias?.nombre ?? null, categoriaNumero: e.proyecto?.categorias?.numero ?? null,
           etapaId: e.etapa_id, etapa: e.etapa?.nombre ?? "Etapa sin nombre", estado: e.estado,
